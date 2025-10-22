@@ -47,6 +47,10 @@ namespace PurrNet
         /// <typeparam name="T"></typeparam>
         public static void RegisterInstance<T>(T instance) where T : class
         {
+            if (_instances.ContainsKey(typeof(T)))
+            {
+                return;
+            }
             _instances[typeof(T)] = instance;
         }
 

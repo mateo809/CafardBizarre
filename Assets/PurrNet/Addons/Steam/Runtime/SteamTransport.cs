@@ -84,7 +84,7 @@ namespace PurrNet.Steam
             {
                 if (_clientState == value)
                     return;
-
+                Debug.Log($"Client state changed to {value}");
                 _clientState = value;
                 onConnectionState?.Invoke(_clientState, false);
             }
