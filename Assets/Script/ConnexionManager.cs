@@ -19,6 +19,12 @@ namespace SteamExample
         private void Awake()
         {
             InstanceHandler.RegisterInstance(this);
+
+            if(InstanceHandler.GetInstance<ConnexionManager>() != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
             DontDestroyOnLoad(this);
 
             InitializeSteam();
