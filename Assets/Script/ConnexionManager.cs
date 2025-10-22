@@ -43,7 +43,9 @@ namespace SteamExample
 
             if (steamInitialized)
             {
-                SteamAPI.Shutdown();
+#if !UNITY_EDITOR
+        SteamAPI.Shutdown();
+#endif
                 steamInitialized = false;
             }
         }
