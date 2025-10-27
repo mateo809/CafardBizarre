@@ -1,7 +1,8 @@
-using System.Collections;
+﻿using System.Collections;
 using PurrNet;
 using PurrNet.Logging;
 using PurrNet.Transports;
+using Steamworks;
 using UnityEngine;
 
 #if UTP_LOBBYRELAY
@@ -13,58 +14,98 @@ namespace PurrLobby
 {
     public class ConnectionStarter : MonoBehaviour
     {
+        [Header("Optional overrides")]
+        [SerializeField] private PurrTransport _transport;
+        [SerializeField] private UDPTransport _udpTransport;
+
         private NetworkManager _networkManager;
         private LobbyDataHolder _lobbyDataHolder;
-        
+        private bool _isFromLobby = false;
+
         private void Awake()
         {
-            if(!TryGetComponent(out _networkManager)) {
+            if (!TryGetComponent(out _networkManager))
+            {
                 PurrLogger.LogError($"Failed to get {nameof(NetworkManager)} component.", this);
             }
-            
+
             _lobbyDataHolder = FindFirstObjectByType<LobbyDataHolder>();
-            if(!_lobbyDataHolder)
-                PurrLogger.LogError($"Failed to get {nameof(LobbyDataHolder)} component.", this);
+            if (_lobbyDataHolder)
+                _isFromLobby = true;
         }
 
         private void Start()
         {
-            if (!_networkManager)
+            // 🔹 Sécurité : si le NetworkManager a déjà un transport, on le récupère
+            if (_networkManager.transport == null)
             {
-                PurrLogger.LogError($"Failed to start connection. {nameof(NetworkManager)} is null!", this);
-                return;
+                if (_networkManager.transport == null)
+                {
+                    PurrLogger.LogError(" No transport found! Please assign one to the NetworkManager.", this);
+                    return;
+                }
+                else
+                {
+                    PurrLogger.Log($" Found transport: {_networkManager.transport.GetType().Name}", this);
+                }
             }
-            
+
+            if (_isFromLobby)
+                StartFromLobby();
+            else
+                StartNormal();
+
+            // Applique le nom de lobby s’il y a un PurrTransport
+            if (_networkManager.transport is PurrTransport purrTransport && _lobbyDataHolder != null)
+            {
+                purrTransport.roomName = _lobbyDataHolder.CurrentLobby.LobbyId;
+            }
+
+#if UTP_LOBBYRELAY
+            else if(_networkManager.transport is UTPTransport utp)
+            {
+                if(_lobbyDataHolder.CurrentLobby.IsOwner)
+                {
+                    utp.InitializeRelayServer((Allocation)_lobbyDataHolder.CurrentLobby.ServerObject);
+                }
+                utp.InitializeRelayClient(_lobbyDataHolder.CurrentLobby.Properties["JoinCode"]);
+            }
+#else
+            // P2P fallback
+#endif
+
+            if (_lobbyDataHolder?.CurrentLobby.IsOwner == true)
+                _networkManager.StartServer();
+
+            StartCoroutine(StartClient());
+        }
+
+        private void StartNormal()
+        {
+            // Utilise le transport UDP par défaut si assigné
+            if (_udpTransport != null)
+                _networkManager.transport = _udpTransport;
+
+            _networkManager.StartServer();
+            StartCoroutine(StartClient());
+        }
+
+        private void StartFromLobby()
+        {
+            if (_transport != null)
+                _networkManager.transport = _transport;
+
             if (!_lobbyDataHolder)
             {
                 PurrLogger.LogError($"Failed to start connection. {nameof(LobbyDataHolder)} is null!", this);
                 return;
             }
-            
+
             if (!_lobbyDataHolder.CurrentLobby.IsValid)
             {
                 PurrLogger.LogError($"Failed to start connection. Lobby is invalid!", this);
                 return;
             }
-
-            if(_networkManager.transport is PurrTransport) {
-                (_networkManager.transport as PurrTransport).roomName = _lobbyDataHolder.CurrentLobby.LobbyId;
-            } 
-            
-#if UTP_LOBBYRELAY
-            else if(_networkManager.transport is UTPTransport) {
-                if(_lobbyDataHolder.CurrentLobby.IsOwner) {
-                    (_networkManager.transport as UTPTransport).InitializeRelayServer((Allocation)_lobbyDataHolder.CurrentLobby.ServerObject);
-                }
-                (_networkManager.transport as UTPTransport).InitializeRelayClient(_lobbyDataHolder.CurrentLobby.Properties["JoinCode"]);
-            }
-#else
-                //P2P Connection, receive IP/Port from server
-#endif
-
-            if(_lobbyDataHolder.CurrentLobby.IsOwner)
-                _networkManager.StartServer();
-            StartCoroutine(StartClient());
         }
 
         private IEnumerator StartClient()
