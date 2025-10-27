@@ -78,29 +78,26 @@ namespace PurrLobby
 
             if (_lobbyDataHolder.CurrentLobby.IsOwner)
             {
-                // Démarre le serveur
                 _networkManager.StartServer();
 
-                // Démarre aussi le client local après 1-2 secondes
                 StartCoroutine(StartLocalClient());
             }
             else
             {
-                // Client externe
                 StartCoroutine(StartClient());
             }
         }
 
         private IEnumerator StartLocalClient()
         {
-            yield return new WaitForSeconds(1f); // attendre que le serveur soit prêt
+            yield return new WaitForSeconds(1f);
             Debug.Log("Starting local client on host...");
             _networkManager.StartClient();
         }
 
         private IEnumerator StartClient()
         {
-            yield return new WaitForSeconds(3f); // attendre que le host soit prêt
+            yield return new WaitForSeconds(3f); 
             _networkManager.StartClient();
         }
 
