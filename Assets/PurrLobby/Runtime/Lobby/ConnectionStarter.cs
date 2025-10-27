@@ -4,6 +4,7 @@ using PurrNet.Logging;
 using PurrNet.Transports;
 using PurrNet.Steam;
 using UnityEngine;
+using Steamworks;
 
 #if UTP_LOBBYRELAY
 using PurrNet.UTP;
@@ -19,7 +20,8 @@ namespace PurrLobby
 
         private NetworkManager _networkManager;
         private LobbyDataHolder _lobbyDataHolder;
-        private bool _isHost = false;
+
+        private bool _isFromLobby;
 
         private void Awake()
         {
@@ -29,7 +31,9 @@ namespace PurrLobby
             }
 
             _lobbyDataHolder = FindFirstObjectByType<LobbyDataHolder>();
-            _isHost = _lobbyDataHolder != null && _lobbyDataHolder.CurrentLobby.IsOwner;
+            if (_lobbyDataHolder)
+                _isFromLobby = true;
+
         }
 
         private void Start()
@@ -46,45 +50,61 @@ namespace PurrLobby
                 return;
             }
 
-            Debug.Log($"SteamTransport address set to lobby ID: {_steamTransport.address}");
+            if (_isFromLobby)
+                StartFromLobby();
+            else
+                StartNormal();
 
+        }
+
+        private void StartNormal()
+        {
+            _networkManager.transport = _steamTransport;
+        }
+
+        private void StartFromLobby()
+        {
             _networkManager.transport = _steamTransport;
 
-            if (_isHost)
+            if (!ulong.TryParse(_lobbyDataHolder.CurrentLobby.LobbyId, out ulong lobbyID))
             {
-                Debug.Log("Host detected: starting Steam server...");
+                PurrLogger.LogError("Failed to parse Steam Lobby ID from lobby data.", this);
+                return;
+            }
+
+            var lobbyOwner = SteamMatchmaking.GetLobbyOwner(new CSteamID(lobbyID));
+
+            _steamTransport.address = lobbyOwner.ToString();
+
+            if (_lobbyDataHolder.CurrentLobby.IsOwner)
+            {
+                // Démarre le serveur
                 _networkManager.StartServer();
 
-                // Démarrer un client local sur le host après un délai
+                // Démarre aussi le client local après 1-2 secondes
                 StartCoroutine(StartLocalClient());
             }
             else
             {
-                Debug.Log("Client detected: joining Steam server...");
-                StartCoroutine(StartClientWithDelay());
+                // Client externe
+                StartCoroutine(StartClient());
             }
         }
 
         private IEnumerator StartLocalClient()
         {
-            // Attendre que le serveur Steam soit pleinement prêt
-            float waitTime = 3f;
-            Debug.Log($"Waiting {waitTime} seconds before starting local client...");
-            yield return new WaitForSeconds(waitTime);
-
+            yield return new WaitForSeconds(1f); // attendre que le serveur soit prêt
             Debug.Log("Starting local client on host...");
             _networkManager.StartClient();
         }
 
-        private IEnumerator StartClientWithDelay()
+        private IEnumerator StartClient()
         {
-            // Délai pour laisser le host démarrer
-            float waitTime = 3f;
-            Debug.Log($"Waiting {waitTime} seconds before starting client...");
-            yield return new WaitForSeconds(waitTime);
-
-            Debug.Log($"Client attempting to connect to lobby ID: {_steamTransport.address}");
+            yield return new WaitForSeconds(3f); // attendre que le host soit prêt
             _networkManager.StartClient();
         }
+
     }
 }
+
+
