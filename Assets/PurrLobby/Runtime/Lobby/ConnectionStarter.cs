@@ -40,44 +40,50 @@ namespace PurrLobby
                 return;
             }
 
-            // Configurer SteamTransport avec le LobbyId
-            if (_lobbyDataHolder != null)
+            if (_lobbyDataHolder == null)
             {
-                _steamTransport.name = _lobbyDataHolder.CurrentLobby.LobbyId;
+                PurrLogger.LogError("LobbyDataHolder not found!", this);
+                return;
             }
+
+            Debug.Log($"SteamTransport address set to lobby ID: {_steamTransport.address}");
+
+            _networkManager.transport = _steamTransport;
 
             if (_isHost)
             {
                 Debug.Log("Host detected: starting Steam server...");
-                _networkManager.transport = _steamTransport;
-
-                // Démarrer le serveur Steam
                 _networkManager.StartServer();
 
-                // Démarrer un client local pour le host
+                // Démarrer un client local sur le host après un délai
                 StartCoroutine(StartLocalClient());
             }
             else
             {
                 Debug.Log("Client detected: joining Steam server...");
-                _networkManager.transport = _steamTransport;
-
-                // Lancer le client
                 StartCoroutine(StartClientWithDelay());
             }
         }
 
         private IEnumerator StartLocalClient()
         {
-            yield return new WaitForSeconds(1f); // Attendre que le serveur soit prêt
+            // Attendre que le serveur Steam soit pleinement prêt
+            float waitTime = 3f;
+            Debug.Log($"Waiting {waitTime} seconds before starting local client...");
+            yield return new WaitForSeconds(waitTime);
+
             Debug.Log("Starting local client on host...");
             _networkManager.StartClient();
         }
 
         private IEnumerator StartClientWithDelay()
         {
-            yield return new WaitForSeconds(2f); // Laisser le temps au host de démarrer
-            Debug.Log("Starting client...");
+            // Délai pour laisser le host démarrer
+            float waitTime = 3f;
+            Debug.Log($"Waiting {waitTime} seconds before starting client...");
+            yield return new WaitForSeconds(waitTime);
+
+            Debug.Log($"Client attempting to connect to lobby ID: {_steamTransport.address}");
             _networkManager.StartClient();
         }
     }
