@@ -2,7 +2,6 @@
 using PurrNet;
 using PurrNet.Logging;
 using PurrNet.Transports;
-using Steamworks;
 using UnityEngine;
 
 #if UTP_LOBBYRELAY
@@ -14,9 +13,12 @@ namespace PurrLobby
 {
     public class ConnectionStarter : MonoBehaviour
     {
-        [Header("Optional overrides")]
-        [SerializeField] private PurrTransport _transport;
+        [Header("UDP Transport")]
         [SerializeField] private UDPTransport _udpTransport;
+
+        [Header("Server IP (for client connections)")]
+        [SerializeField] private string _serverIp = "127.0.0.1"; // IP du serveur
+        private const ushort ServerPort = 5000;                    // Port fixe du serveur
 
         private NetworkManager _networkManager;
         private LobbyDataHolder _lobbyDataHolder;
@@ -30,88 +32,48 @@ namespace PurrLobby
             }
 
             _lobbyDataHolder = FindFirstObjectByType<LobbyDataHolder>();
-            if (_lobbyDataHolder)
-                _isFromLobby = true;
+            _isFromLobby = _lobbyDataHolder != null;
         }
 
         private void Start()
         {
-            // 🔹 Sécurité : si le NetworkManager a déjà un transport, on le récupère
-            if (_networkManager.transport == null)
+            if (_udpTransport == null)
             {
-                if (_networkManager.transport == null)
-                {
-                    PurrLogger.LogError(" No transport found! Please assign one to the NetworkManager.", this);
-                    return;
-                }
-                else
-                {
-                    PurrLogger.Log($" Found transport: {_networkManager.transport.GetType().Name}", this);
-                }
+                PurrLogger.LogError("UDPTransport is not assigned!", this);
+                return;
             }
 
-            if (_isFromLobby)
-                StartFromLobby();
-            else
-                StartNormal();
+            _networkManager.transport = _udpTransport;
 
-            // Applique le nom de lobby s’il y a un PurrTransport
-            if (_networkManager.transport is PurrTransport purrTransport && _lobbyDataHolder != null)
+            // Configure l'adresse et le port du serveur pour le client
+            _udpTransport.address = _serverIp;
+            _udpTransport.serverPort = ServerPort;
+
+            // Si propriétaire du lobby => serveur
+            if (_lobbyDataHolder?.CurrentLobby.IsOwner == true)
             {
-                purrTransport.roomName = _lobbyDataHolder.CurrentLobby.LobbyId;
+                _networkManager.StartServer(); // port fixe 5000
             }
 
 #if UTP_LOBBYRELAY
-            else if(_networkManager.transport is UTPTransport utp)
+            // Initialisation Relay si nécessaire
+            if (_networkManager.transport is UTPTransport utp && _lobbyDataHolder != null)
             {
-                if(_lobbyDataHolder.CurrentLobby.IsOwner)
-                {
+                if (_lobbyDataHolder.CurrentLobby.IsOwner)
                     utp.InitializeRelayServer((Allocation)_lobbyDataHolder.CurrentLobby.ServerObject);
-                }
+
                 utp.InitializeRelayClient(_lobbyDataHolder.CurrentLobby.Properties["JoinCode"]);
             }
-#else
-            // P2P fallback
 #endif
 
-            if (_lobbyDataHolder?.CurrentLobby.IsOwner == true)
-                _networkManager.StartServer();
-
-            StartCoroutine(StartClient());
+            // Démarre le client après un léger délai
+            StartCoroutine(StartClientWithDelay());
         }
 
-        private void StartNormal()
+        private IEnumerator StartClientWithDelay()
         {
-            // Utilise le transport UDP par défaut si assigné
-            if (_udpTransport != null)
-                _networkManager.transport = _udpTransport;
-
-            _networkManager.StartServer();
-            StartCoroutine(StartClient());
-        }
-
-        private void StartFromLobby()
-        {
-            if (_transport != null)
-                _networkManager.transport = _transport;
-
-            if (!_lobbyDataHolder)
-            {
-                PurrLogger.LogError($"Failed to start connection. {nameof(LobbyDataHolder)} is null!", this);
-                return;
-            }
-
-            if (!_lobbyDataHolder.CurrentLobby.IsValid)
-            {
-                PurrLogger.LogError($"Failed to start connection. Lobby is invalid!", this);
-                return;
-            }
-        }
-
-        private IEnumerator StartClient()
-        {
-            yield return new WaitForSeconds(1f);
-            _networkManager.StartClient();
+            yield return new WaitForSeconds(2f); // Attendre que le serveur soit prêt
+            _networkManager.StartClient();       // UDPTransport choisira un port libre pour le client
         }
     }
 }
