@@ -10,19 +10,28 @@ public class RoachController : MonoBehaviour
     public float wallSpeed = 3f;
     public float turnSpeed = 8f;
 
-    [Header("Saut & Planage")]
+    [Header("Jump & Hover ")]
     public float jumpForce = 6f;
     public float glideGravityScale = 0.3f;
     public float jumpCooldown = 0.5f; // en secondes
 
-    [Header("Adhérence / Surfaces")]
+    [Header("Adhesion & Surfaces")]
     public float stickForce = 50f;
     public float surfaceCheckDistance = 1.5f;
     public LayerMask climbableLayers;
     public float minClimbSpeed = 1.2f;
     public float gravityCompensationFactor = 0.6f; // fraction de gravité compensée
 
-    [Header("Caméra")]
+    [Header("Weight & Inventory")]
+    public float currentHoldingWeight = 0;
+    public float maxHoldingWeight = 0;
+    private bool _isInventoryOpen = false;
+    public int inventoryMaxSize = 4;
+    private PlayerInventory _inventory;
+    private InteractionConroller _interactionConroller;
+
+
+    [Header("Camera")]
     public Transform cameraPivot;
     public float cameraFollowSpeed = 6f;
 
@@ -44,7 +53,8 @@ public class RoachController : MonoBehaviour
         rb.useGravity = true;
         rb.constraints = RigidbodyConstraints.FreezeRotation;
         playerInput = GetComponent<PlayerInput>();
-    }
+        _inventory = GetComponent<PlayerInventory>();
+}
 
     // ==========================
     // INPUT SYSTEM CALLBACKS
@@ -67,6 +77,28 @@ public class RoachController : MonoBehaviour
             isGliding = false;
         }
     }
+
+    public void OnInventoryOpening(InputAction.CallbackContext context)
+    {
+        if (context.started )
+        {
+            if (_isInventoryOpen)
+            {
+                _isInventoryOpen = false;
+                _inventory.SetInventoryVisibilityAtFalse();
+
+            }
+            else 
+            {
+                _isInventoryOpen = true;
+                _inventory.SetInventoryVisibilityAtTrue();
+
+            }
+
+        }
+    }
+
+ 
 
     // ==========================
     // UPDATE
@@ -234,4 +266,7 @@ public class RoachController : MonoBehaviour
         Gizmos.color = Color.green;
         Gizmos.DrawLine(transform.position, transform.position - transform.up * surfaceCheckDistance);
     }
+
+
+
 }
