@@ -604,10 +604,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PurrNet.Runtime::PurrNet.PlayerSpawner
   playerPrefab: {fileID: 0}
-  _playerPrefab: {fileID: 1885973455849111949, guid: d3332c457906f264da603bd066a57551, type: 3}
+  _playerPrefab: {fileID: 2407460229403786492, guid: d1e4a0b243f58b749a3f3b277fa615c7, type: 3}
   _ignoreNetworkRules: 0
   spawnPoints:
-  - {fileID: 0}
+  - {fileID: 810810251}
 --- !u!4 &873306624
 Transform:
   m_ObjectHideFlags: 0
