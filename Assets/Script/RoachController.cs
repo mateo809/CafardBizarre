@@ -49,31 +49,34 @@ public class RoachController : NetworkBehaviour
     {
         base.OnSpawned();
 
-        var playerInput = GetComponent<PlayerInput>();
-
-        if (!isOwner)
+        if (isOwner)
         {
-            // Si ce n'est pas le joueur local, on désactive l'input
+            // Joueur local : activer scripts et input
+            enabled = true; // RoachController actif
+            var playerInput = GetComponent<PlayerInput>();
+            if (playerInput) playerInput.enabled = true;
+
+            // Instancier la caméra locale si nécessaire
+            if (!_cameraPivot)
+            {
+                GameObject camObj = new GameObject("CameraPivot");
+                camObj.transform.SetParent(transform);
+                camObj.transform.localPosition = Vector3.zero;
+                _cameraPivot = camObj.transform;
+            }
+        }
+        else
+        {
+            // Joueur réseau : désactiver input et script de contrôle
+            enabled = false;
+            var playerInput = GetComponent<PlayerInput>();
             if (playerInput) playerInput.enabled = false;
 
-            Destroy(_cameraPivot?.gameObject); // détruire la caméra non locale
-            enabled = false; // désactiver le script de contrôle non local
-            return;
-        }
-
-        // Joueur local : on active tout
-        enabled = true;
-        if (playerInput) playerInput.enabled = true;
-
-        // Instancie la caméra locale si nécessaire
-        if (!_cameraPivot)
-        {
-            GameObject camObj = new GameObject("CameraPivot");
-            camObj.transform.SetParent(transform);
-            camObj.transform.localPosition = Vector3.zero;
-            _cameraPivot = camObj.transform;
+            if (_cameraPivot)
+                Destroy(_cameraPivot.gameObject);
         }
     }
+
 
 
 

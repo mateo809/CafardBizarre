@@ -330,7 +330,7 @@ MonoBehaviour:
   _maxWallAngle: 130
   _climbableLayers:
     serializedVersion: 2
-    m_Bits: 16
+    m_Bits: 128
   _groundCheck: {fileID: 2632482486665589038}
   _groundCheckDistance: 0.5
   _groundLayers:
