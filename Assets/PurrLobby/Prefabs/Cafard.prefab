@@ -100,6 +100,7 @@ GameObject:
   - component: {fileID: 4565962347646067020}
   - component: {fileID: 6797102666521832112}
   - component: {fileID: 38202637142458644}
+  - component: {fileID: 6356387008578635741}
   m_Layer: 3
   m_Name: Cafard
   m_TagString: Untagged
@@ -379,6 +380,35 @@ MonoBehaviour:
   _characterControllerPatch: 0
   _ownerAuth: 1
   _interpolationTiming: 0
+--- !u!114 &6356387008578635741
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2407460229403786492}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39d5e4b97b1615f4aae984a3d5f4235f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PurrNet.Runtime::PurrNet.NetworkOwnershipToggle
+  _isSetup: 0
+  _prefabId: -2147483648
+  _componentIndex: -2147483648
+  _shouldBePooled: 0
+  _parent: {fileID: 0}
+  _invertedPathToNearestParent: 
+  _directChildren: []
+  _networkRules: {fileID: 0}
+  _visitiblityRules: {fileID: 0}
+  _components:
+  - target: {fileID: 5001885115517651334}
+    activeAsOwner: 0
+  _gameObjects: []
+  _toActivate: []
+  _toDeactivate: []
+  _toEnable: []
+  _toDisable: []
 --- !u!1 &2594815258375765999
 GameObject:
   m_ObjectHideFlags: 0
