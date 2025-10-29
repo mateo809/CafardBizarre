@@ -51,23 +51,19 @@ public class RoachController : NetworkBehaviour
 
         if (!isOwner)
         {
-            // Joueur réseau : pas de contrôle
             enabled = false;
             if (_cameraPivot) Destroy(_cameraPivot.gameObject);
             return;
         }
 
-        // Joueur local : activer contrôle
         enabled = true;
 
-        // Activer PlayerInput uniquement ici
         var playerInput = GetComponent<PlayerInput>();
         if (playerInput)
         {
             playerInput.enabled = true;
         }
 
-        // Instancier la caméra locale si nécessaire
         if (!_cameraPivot)
         {
             GameObject camObj = new GameObject("CameraPivot");
@@ -76,11 +72,6 @@ public class RoachController : NetworkBehaviour
             _cameraPivot = camObj.transform;
         }
     }
-
-
-
-
-
     private void Awake()
     {
         _rb = GetComponent<Rigidbody>();
@@ -209,49 +200,53 @@ public class RoachController : NetworkBehaviour
     {
         if (_moveInput.sqrMagnitude < 0.01f) return;
 
-        Vector3 camForward = _cameraPivot ? _cameraPivot.forward : transform.forward;
-        Vector3 camRight = _cameraPivot ? _cameraPivot.right : transform.right;
+        Vector3 moveDir;
 
-        // Projette les directions de la caméra sur le plan de la surface
-        camForward = Vector3.ProjectOnPlane(camForward, _currentSurfaceNormal).normalized;
-        camRight = Vector3.ProjectOnPlane(camRight, _currentSurfaceNormal).normalized;
-
-        // Inversion sur murs
-        float verticalInput = _moveInput.y;
         if (_currentState == PlayerState.WallClimbing)
-            verticalInput *= -1f;
+        {
+            Vector3 up = _currentSurfaceNormal == Vector3.up ? Vector3.up : Vector3.Cross(Vector3.Cross(Vector3.up, _currentSurfaceNormal), _currentSurfaceNormal).normalized;
+            Vector3 right = Vector3.Cross(up, _currentSurfaceNormal).normalized;
+            moveDir = right * _moveInput.x + up * _moveInput.y * -1f;
+        }
+        else
+        {
+            Vector3 camForward = _cameraPivot ? _cameraPivot.forward : transform.forward;
+            Vector3 camRight = _cameraPivot ? _cameraPivot.right : transform.right;
 
-        Vector3 moveDir = (camForward * verticalInput + camRight * _moveInput.x);
+            camForward = Vector3.ProjectOnPlane(camForward, _currentSurfaceNormal).normalized;
+            camRight = Vector3.ProjectOnPlane(camRight, _currentSurfaceNormal).normalized;
+
+            moveDir = (camForward * _moveInput.y + camRight * _moveInput.x).normalized;
+        }
 
         if (moveDir.sqrMagnitude < 0.01f) return;
 
-        Vector3 moveDirOnSurface = Vector3.ProjectOnPlane(moveDir, _currentSurfaceNormal).normalized;
-
-        // Si on n'a pas de mouvement horizontal, garder la rotation actuelle
-        if (moveDirOnSurface.sqrMagnitude > 0.01f)
-        {
-            Quaternion targetRot = Quaternion.LookRotation(moveDirOnSurface, _currentSurfaceNormal);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, _rotationSpeed * Time.fixedDeltaTime);
-        }
+        Quaternion targetRot = Quaternion.LookRotation(Vector3.ProjectOnPlane(moveDir, _currentSurfaceNormal), _currentSurfaceNormal);
+        transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, _rotationSpeed * Time.fixedDeltaTime);
     }
 
 
     private Vector3 CalculateDesiredVelocity()
     {
-        Vector3 camForward = _cameraPivot ? _cameraPivot.forward : transform.forward;
-        Vector3 camRight = _cameraPivot ? _cameraPivot.right : transform.right;
+        Vector3 moveDir;
 
-        camForward = Vector3.ProjectOnPlane(camForward, _currentSurfaceNormal).normalized;
-        camRight = Vector3.ProjectOnPlane(camRight, _currentSurfaceNormal).normalized;
-
-        // Inverser le mouvement vertical si on est sur un mur
-        float verticalInput = _moveInput.y;
         if (_currentState == PlayerState.WallClimbing)
         {
-            verticalInput *= -1f;
-        }
+            Vector3 up = _currentSurfaceNormal == Vector3.up ? Vector3.up : Vector3.Cross(Vector3.Cross(Vector3.up, _currentSurfaceNormal), _currentSurfaceNormal).normalized;
+            Vector3 right = Vector3.Cross(up, _currentSurfaceNormal).normalized;
 
-        Vector3 moveDir = (camForward * verticalInput + camRight * _moveInput.x).normalized;
+            moveDir = right * _moveInput.x + up * _moveInput.y * -1f;
+        }
+        else
+        {
+            Vector3 camForward = _cameraPivot ? _cameraPivot.forward : transform.forward;
+            Vector3 camRight = _cameraPivot ? _cameraPivot.right : transform.right;
+
+            camForward = Vector3.ProjectOnPlane(camForward, Vector3.up).normalized;
+            camRight = Vector3.ProjectOnPlane(camRight, Vector3.up).normalized;
+
+            moveDir = (camForward * _moveInput.y + camRight * _moveInput.x).normalized;
+        }
 
         float speed = _walkSpeed * ((_currentState == PlayerState.Grounded || _currentState == PlayerState.WallClimbing) ? 1f : _airControlMultiplier);
         return moveDir * speed;
