@@ -50,6 +50,9 @@ public class RoachController : NetworkBehaviour
         base.OnSpawned();
 
         enabled = isOwner;
+
+        if(!isOwner)
+           Destroy(_cameraPivot.gameObject);
     }
 
     private void Awake()
