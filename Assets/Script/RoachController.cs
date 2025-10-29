@@ -1,8 +1,9 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using PurrNet;
 
 [RequireComponent(typeof(Rigidbody))]
-public class RoachController : MonoBehaviour
+public class RoachController : NetworkBehaviour
 {
     public enum PlayerState { Grounded, Jumping, Falling, Gliding, WallClimbing }
 
@@ -43,6 +44,13 @@ public class RoachController : MonoBehaviour
 
     private PlayerState _currentState = PlayerState.Grounded;
     private Vector3 _currentSurfaceNormal = Vector3.up;
+
+    protected override void OnSpawned()
+    {
+        base.OnSpawned();
+
+        enabled = isOwner;
+    }
 
     private void Awake()
     {
