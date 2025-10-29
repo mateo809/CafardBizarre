@@ -66,8 +66,8 @@ MonoBehaviour:
   attackDamage: 10
   loseTargetTime: 3
   idleTimeAtDestination: 2
-  alertPrefab: {fileID: 0}
-  alertSpawnPoint: {fileID: 0}
+  alertPrefab: {fileID: 683302709187201534, guid: 626fc7582b452e744896c554c5f3be75, type: 3}
+  alertSpawnPoint: {fileID: 5344580799316050953}
 --- !u!54 &7354765478776888809
 Rigidbody:
   m_ObjectHideFlags: 0
