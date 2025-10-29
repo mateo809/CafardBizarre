@@ -336,7 +336,7 @@ MonoBehaviour:
   _groundLayers:
     serializedVersion: 2
     m_Bits: 1
-  _cameraPivot: {fileID: 0}
+  _cameraPivot: {fileID: 4031161244650324719}
 --- !u!65 &6797102666521832112
 BoxCollider:
   m_ObjectHideFlags: 0

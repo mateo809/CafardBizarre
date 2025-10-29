@@ -49,11 +49,26 @@ public class RoachController : NetworkBehaviour
     {
         base.OnSpawned();
 
-        enabled = isOwner;
+        if (!isOwner)
+        {
+            var playerInput = GetComponent<PlayerInput>();
+            if (playerInput) playerInput.enabled = false;
 
-        if(!isOwner)
-           Destroy(_cameraPivot.gameObject);
+            Destroy(_cameraPivot?.gameObject);
+            return;
+        }
+
+        enabled = true;
+
+        if (!_cameraPivot)
+        {
+            GameObject camObj = new GameObject("CameraPivot");
+            camObj.transform.SetParent(transform);
+            camObj.transform.localPosition = Vector3.zero;
+            _cameraPivot = camObj.transform;
+        }
     }
+
 
     private void Awake()
     {
