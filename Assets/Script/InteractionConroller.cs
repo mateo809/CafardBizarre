@@ -13,12 +13,13 @@ public class InteractionConroller : MonoBehaviour
 
     ItemToPickup _itemToPickup;
 
+    private PlayerInventory _playerInventory;
 
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        
+        _playerInventory = GetComponent<PlayerInventory>();
     }
 
     // Update is called once per frame
@@ -35,18 +36,28 @@ public class InteractionConroller : MonoBehaviour
     {
         var ray = _camera.ViewportPointToRay(new Vector2(0.5f, 0.5f));
 
-        Physics.Raycast(ray, out var hit, _interactionDistance);
+        // Dessine le raycast en jaune dans la scène
+        Debug.DrawRay(ray.origin, ray.direction * _interactionDistance, Color.yellow, 10f);
 
-        _itemToPickup = hit.collider?.GetComponent<ItemToPickup>();
+        if (Physics.Raycast(transform.position, transform.forward, out var hit, _interactionDistance))
+        {
+            _itemToPickup = hit.collider?.GetComponent<ItemToPickup>();
+        }
+        else
+        {
+            _itemToPickup = null;
+        }
     }
 
     void UpdateInteractionText()
     {
         if (_itemToPickup == null)
         {
-            _interactionText.text = string.Empty;
+            _interactionText.enabled = false;
+            return;
         }
 
+        _interactionText.enabled = true;
         _interactionText.text = _itemToPickup._interactMessage;
     }
 
@@ -54,16 +65,28 @@ public class InteractionConroller : MonoBehaviour
     {
         if (Keyboard.current.eKey.wasPressedThisFrame && _itemToPickup != null)
         {
-            _itemToPickup.PickUpItem();
+            ItemData dataToStore = new ItemData();
+            dataToStore = _itemToPickup._itemData;
+            if (_playerInventory.PutInInventory(dataToStore))
+            {
+                _playerInventory.UpdateInventoryRender();
+                Destroy(_itemToPickup.gameObject);
+            } else
+            {
+                Debug.LogWarning("Inventory is full");
+            }
+            
+
+            
         }
     }
 
-    public void DoAll()
+    public void DoAll(InputAction.CallbackContext context)
     {
+        if (!context.performed) return;
+
         UpdateCurrentInteractable();
-
         UpdateInteractionText();
-
         CheckForInteractionInput();
     }
 }

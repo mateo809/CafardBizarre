@@ -9,7 +9,8 @@ public class InventoryLine : MonoBehaviour
 
     public bool _isLocked = true;
 
-    public List<ItemToPickup> inventoryLinesOfItem = new List<ItemToPickup>(4);
+    [SerializeField] private GameObject _player;
+    public List<ItemData> inventoryLinesOfItem = new List<ItemData>();
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -32,29 +33,37 @@ public class InventoryLine : MonoBehaviour
     {
         if (inventoryLinesOfItem.Count < 4)
         {
-            return true;
+            return false;
         }
         else
         {
-            return false;
+            return true;
 
         }
     }
-    public void IsLocked()
+    public bool IsLocked()
     {
 
         if (_isLocked)
         {
             this.GetComponent<Image>().color = Color.darkGray;
+            return true;
         } else
         {
             this.GetComponent<Image>().color = Color.darkBlue;
+            return false;
         }
 
     }
 
-    internal void SetParent(GameObject parentInventoryLines)
+    public void DropItem(int index  )
     {
-        throw new NotImplementedException();
+        ItemData itemDataToDrop = inventoryLinesOfItem[index];
+        ItemToPickup itemTP = new ItemToPickup(itemDataToDrop, "Press \"E\" to pick up");
+        
+        itemTP = Instantiate(itemTP, _player.transform);
+
     }
+
+    
 }

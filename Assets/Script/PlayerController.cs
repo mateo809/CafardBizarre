@@ -24,7 +24,7 @@ public class RoachController : MonoBehaviour
 
     [Header("Weight & Inventory")]
     public float currentHoldingWeight = 0;
-    public float maxHoldingWeight = 0;
+    public float maxHoldingWeight = 50;
     private bool _isInventoryOpen = false;
     public int inventoryMaxSize = 4;
     private PlayerInventory _inventory;
@@ -54,7 +54,8 @@ public class RoachController : MonoBehaviour
         rb.constraints = RigidbodyConstraints.FreezeRotation;
         playerInput = GetComponent<PlayerInput>();
         _inventory = GetComponent<PlayerInventory>();
-}
+        _inventory.SetInventoryVisibilityAtFalse();
+    }
 
     // ==========================
     // INPUT SYSTEM CALLBACKS

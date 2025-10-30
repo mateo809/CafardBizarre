@@ -2,15 +2,19 @@ using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class PlayerInventory : MonoBehaviour
 {
 
-   
+
+    public GameObject _spawnLocation;
+
 
     private RoachController _ownerController;
 
-    private List<InventoryLine> _inventory = new List<InventoryLine>(4);
+    private List<InventoryLine> _inventory = new List<InventoryLine>();
+    private List<ItemData> _items = new List<ItemData>();
 
     [SerializeField] private InventoryLine _prefabInventoryLine;
     [SerializeField] private GameObject _parentInventoryLines;
@@ -41,6 +45,24 @@ public class PlayerInventory : MonoBehaviour
         
     }
 
+    public void UpdateInventoryRender()
+    {
+        foreach (InventoryLine line in _inventory)
+        {
+            if (!line.IsLocked())
+            {
+
+                int i = 0;
+                foreach (ItemData data in line.inventoryLinesOfItem)
+                {
+
+                    line.transform.GetChild(i).GetComponent<Image>().sprite = data._icon;
+                    i++;
+                }
+            }
+        }
+    }
+
     public void SetInventoryVisibilityAtFalse()
     {
         _parentInventoryLines.SetActive(false);
@@ -50,10 +72,11 @@ public class PlayerInventory : MonoBehaviour
         _parentInventoryLines.SetActive(true);
     }
 
-    public bool InventoryHasSpace(ItemToPickup itemToPut)
+    public bool InventoryHasSpace(ItemData itemToPut)
     {
+      
 
-        if (_ownerController.currentHoldingWeight + itemToPut.weight >= _ownerController.maxHoldingWeight 
+        if (_ownerController.currentHoldingWeight + itemToPut._weight >= _ownerController.maxHoldingWeight 
             && _ownerController.inventoryMaxSize >= _inventory.Count )
         {
             return false;
@@ -61,7 +84,7 @@ public class PlayerInventory : MonoBehaviour
         return true;
     }
     
-    //If return 100 then there is a problem
+    //If return 10 then there is a problem
     private int WhichSlotInventory()
     {
         for (int i = 0; i < _inventory.Count; i++)
@@ -76,23 +99,29 @@ public class PlayerInventory : MonoBehaviour
 
     // If return false : an error has occured
     // If return true : everything is good
-    public bool PutInInventory(ItemToPickup itemToPut)
+    public bool PutInInventory(ItemData itemData)
     {
         try
         {
-            if (InventoryHasSpace(itemToPut))
+            if (InventoryHasSpace(itemData))
             {
                 int i = WhichSlotInventory();
-                if ( i != 10)
+                Debug.Log("which slot : " + i);
+
+
+                if ( i != 10) // if i == 10 then there is an error in WhichSlotInventory OR the inventory is full
                 {
-                    _inventory[i].inventoryLinesOfItem.Add(itemToPut);
+                    _inventory[i].inventoryLinesOfItem.Add(itemData);
+                } else
+                {
+                    return false;
                 }
             }
             return true;
         }
         catch(Exception e)
         {
-            Debug.LogError("The item can't be put inside the inventory because" + e);
+            Debug.LogError("The item can't be put inside the inventory because" + e);   
             return false;
         }
         }
