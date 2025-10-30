@@ -115,42 +115,29 @@ public class RoachController : NetworkBehaviour
 
     private Vector3 CalculateDesiredVelocity()
     {
-        Vector3 moveDir = Vector3.zero;
+        // Direction de déplacement en fonction de l'orientation du cafard
+        Vector3 moveDir = (transform.forward * _moveInput.y) + (transform.right * _moveInput.x);
+        moveDir = moveDir.normalized;
 
-        if (_currentState == PlayerState.WallClimbing)
-        {
-            Vector3 up = Vector3.Cross(Vector3.Cross(Vector3.up, _currentSurfaceNormal), _currentSurfaceNormal).normalized;
-            Vector3 right = Vector3.Cross(up, _currentSurfaceNormal).normalized;
-            // Inversion pour que Z monte et S descende
-            moveDir = right * _moveInput.x + up * -_moveInput.y;
-        }
-        else
-        {
-            moveDir = transform.forward * _moveInput.y;
-        }
-
+        // Vitesse selon l'état
         float speed = _walkSpeed * ((_currentState == PlayerState.Grounded || _currentState == PlayerState.WallClimbing) ? 1f : _airControlMultiplier);
+
         return moveDir * speed;
     }
 
+
     private void ApplyMovement(Vector3 desiredVelocity)
     {
-        if (_currentState == PlayerState.WallClimbing)
-        {
-            Vector3 up = Vector3.Cross(Vector3.Cross(Vector3.up, _currentSurfaceNormal), _currentSurfaceNormal).normalized;
-            Vector3 right = Vector3.Cross(up, _currentSurfaceNormal).normalized;
-            Vector3 moveDir = right * _moveInput.x + up * -_moveInput.y;
-            Vector3 targetVel = moveDir * _walkSpeed;
-            _rb.linearVelocity = Vector3.MoveTowards(_rb.linearVelocity, targetVel, _acceleration * Time.fixedDeltaTime);
-        }
-        else
-        {
-            Vector3 vel = _rb.linearVelocity;
-            Vector3 localVel = Vector3.ProjectOnPlane(vel, _currentSurfaceNormal);
-            Vector3 targetVel = Vector3.MoveTowards(localVel, desiredVelocity, _acceleration * Time.fixedDeltaTime);
-            _rb.linearVelocity = targetVel + _currentSurfaceNormal * Vector3.Dot(vel, _currentSurfaceNormal);
-        }
+        Vector3 vel = _rb.linearVelocity;
+
+        // On garde la composante parallèle à la surface
+        Vector3 localVel = Vector3.ProjectOnPlane(vel, _currentSurfaceNormal);
+        Vector3 targetVel = Vector3.MoveTowards(localVel, desiredVelocity, _acceleration * Time.fixedDeltaTime);
+
+        // On conserve la composante perpendiculaire à la surface (collage au mur)
+        _rb.linearVelocity = targetVel + _currentSurfaceNormal * Vector3.Dot(vel, _currentSurfaceNormal);
     }
+
 
     private void ApplyGravityAndJump()
     {
@@ -275,7 +262,22 @@ public class RoachController : NetworkBehaviour
         return false;
     }
 
-    private void HandleOrientation() { Quaternion targetRot = Quaternion.FromToRotation(transform.up, _currentSurfaceNormal) * transform.rotation; transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, _alignSpeed * Time.fixedDeltaTime); }
+    private void HandleOrientation()
+    {
+        // Oriente le haut du cafard selon la normale
+        Quaternion alignToSurface = Quaternion.FromToRotation(transform.up, _currentSurfaceNormal) * transform.rotation;
+
+        // Oriente le "forward" du cafard pour qu’il reste tangentiel à la surface
+        Vector3 projectedForward = Vector3.ProjectOnPlane(transform.forward, _currentSurfaceNormal).normalized;
+        if (projectedForward.sqrMagnitude > 0.001f)
+        {
+            Quaternion lookForward = Quaternion.LookRotation(projectedForward, _currentSurfaceNormal);
+            alignToSurface = Quaternion.Slerp(alignToSurface, lookForward, 0.5f);
+        }
+
+        transform.rotation = Quaternion.Slerp(transform.rotation, alignToSurface, _alignSpeed * Time.fixedDeltaTime);
+    }
+
 
     private void HandleCameraPivot()
     {
