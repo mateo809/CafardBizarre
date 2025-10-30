@@ -25,30 +25,31 @@ public class EnemyAI : MonoBehaviour
     public float idleTimeAtDestination = 2f;
 
     [Header("Feedback Visuel")]
-    public GameObject alertPrefab;          
-    public Transform alertSpawnPoint;       
-    private GameObject currentAlert;       
+    public GameObject alertPrefab;
+    public Transform alertSpawnPoint;
 
-    private NavMeshAgent agent;
-    private Transform target;
-    private float lastSeenTime;
-    private float lastAttackTime;
+    private GameObject _currentAlert;
+    private NavMeshAgent _agent;
+    private Transform _target;
+    private float _lastSeenTime;
+    private float _lastAttackTime;
+
     private enum State { Patrol, Chase, Attack }
-    private State state = State.Patrol;
+    private State _state = State.Patrol;
 
     void Start()
     {
-        agent = GetComponent<NavMeshAgent>();
-        if (!agent)
-            agent = gameObject.AddComponent<NavMeshAgent>();
+        _agent = GetComponent<NavMeshAgent>();
+        if (!_agent)
+            _agent = gameObject.AddComponent<NavMeshAgent>();
 
-        agent.speed = patrolSpeed;
+        _agent.speed = patrolSpeed;
         GoToRandomPoint();
     }
 
     void Update()
     {
-        switch (state)
+        switch (_state)
         {
             case State.Patrol:
                 Patrol();
@@ -64,10 +65,9 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
-    // === ETAT PATROUILLE ===
     void Patrol()
     {
-        if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance)
+        if (!_agent.pathPending && _agent.remainingDistance <= _agent.stoppingDistance)
         {
             StartCoroutine(WaitAndMoveRandom());
         }
@@ -75,7 +75,7 @@ public class EnemyAI : MonoBehaviour
 
     IEnumerator WaitAndMoveRandom()
     {
-        state = State.Patrol;
+        _state = State.Patrol;
         yield return new WaitForSeconds(idleTimeAtDestination);
         GoToRandomPoint();
     }
@@ -87,11 +87,10 @@ public class EnemyAI : MonoBehaviour
 
         if (NavMesh.SamplePosition(randomDirection, out NavMeshHit hit, patrolRadius, NavMesh.AllAreas))
         {
-            agent.SetDestination(hit.position);
+            _agent.SetDestination(hit.position);
         }
     }
 
-    // === DETECTION ===
     void DetectPlayer()
     {
         Collider[] hits = Physics.OverlapSphere(transform.position, viewDistance, playerLayer);
@@ -108,16 +107,15 @@ public class EnemyAI : MonoBehaviour
                 float dist = Vector3.Distance(transform.position, player.position);
                 if (!Physics.Raycast(transform.position + Vector3.up * 0.5f, dirToPlayer, dist, obstacleLayer))
                 {
-                    // joueur visible
-                    target = player;
-                    lastSeenTime = Time.time;
-                    state = State.Chase;
-                    agent.speed = chaseSpeed;
+                    _target = player;
+                    _lastSeenTime = Time.time;
+                    _state = State.Chase;
+                    _agent.speed = chaseSpeed;
                     playerVisible = true;
 
-                    if (currentAlert == null && alertPrefab != null && alertSpawnPoint != null)
+                    if (_currentAlert == null && alertPrefab != null && alertSpawnPoint != null)
                     {
-                        currentAlert = Instantiate(alertPrefab, alertSpawnPoint.position, alertSpawnPoint.rotation, alertSpawnPoint);
+                        _currentAlert = Instantiate(alertPrefab, alertSpawnPoint.position, alertSpawnPoint.rotation, alertSpawnPoint);
                     }
 
                     break;
@@ -125,98 +123,101 @@ public class EnemyAI : MonoBehaviour
             }
         }
 
-        // Si le joueur a disparu depuis trop longtemps
-        if (!playerVisible && target != null && Time.time - lastSeenTime > loseTargetTime)
+        if (!playerVisible && _target != null && Time.time - _lastSeenTime > loseTargetTime)
         {
-            target = null;
-            agent.speed = patrolSpeed;
-            state = State.Patrol;
+            _target = null;
+            _agent.speed = patrolSpeed;
+            _state = State.Patrol;
             GoToRandomPoint();
 
-            if (currentAlert != null)
+            if (_currentAlert != null)
             {
-                Destroy(currentAlert);
-                currentAlert = null;
+                Destroy(_currentAlert);
+                _currentAlert = null;
             }
         }
     }
 
-    // === ETAT CHASSE ===
     void Chase()
     {
-        if (target == null)
+        if (_target == null)
         {
-            if (Time.time - lastSeenTime > loseTargetTime)
+            if (Time.time - _lastSeenTime > loseTargetTime)
             {
-                target = null;
-                state = State.Patrol;
-                agent.speed = patrolSpeed;
+                _target = null;
+                _state = State.Patrol;
+                _agent.speed = patrolSpeed;
                 GoToRandomPoint();
 
-                // supprime le feedback si présent
-                if (currentAlert != null)
+                if (_currentAlert != null)
                 {
-                    Destroy(currentAlert);
-                    currentAlert = null;
+                    Destroy(_currentAlert);
+                    _currentAlert = null;
                 }
             }
             return;
         }
 
-        float dist = Vector3.Distance(transform.position, target.position);
+        float dist = Vector3.Distance(transform.position, _target.position);
 
         if (dist > viewDistance * 1.3f)
         {
-            target = null;
-            state = State.Patrol;
-            agent.speed = patrolSpeed;
+            _target = null;
+            _state = State.Patrol;
+            _agent.speed = patrolSpeed;
             GoToRandomPoint();
 
-            if (currentAlert != null)
+            if (_currentAlert != null)
             {
-                Destroy(currentAlert);
-                currentAlert = null;
+                Destroy(_currentAlert);
+                _currentAlert = null;
             }
             return;
         }
 
         if (dist <= attackRange)
         {
-            state = State.Attack;
-            agent.isStopped = true;
+            _state = State.Attack;
+            _agent.isStopped = true;
         }
         else
         {
-            agent.isStopped = false;
-            agent.SetDestination(target.position);
+            _agent.isStopped = false;
+            _agent.SetDestination(_target.position);
         }
     }
 
-    // === ETAT ATTAQUE ===
     void Attack()
     {
-        if (target == null)
+        if (_target == null)
         {
-            state = State.Patrol;
-            agent.isStopped = false;
+            _state = State.Patrol;
+            _agent.isStopped = false;
             GoToRandomPoint();
             return;
         }
 
-        transform.LookAt(target.position);
-        float dist = Vector3.Distance(transform.position, target.position);
+        transform.LookAt(_target.position);
+        float dist = Vector3.Distance(transform.position, _target.position);
 
         if (dist > attackRange + 0.5f)
         {
-            state = State.Chase;
-            agent.isStopped = false;
+            _state = State.Chase;
+            _agent.isStopped = false;
             return;
         }
 
-        if (Time.time - lastAttackTime > attackCooldown)
+        if (Time.time - _lastAttackTime > attackCooldown)
         {
-            lastAttackTime = Time.time;
-            Debug.Log($"{name} attaque {target.name} pour {attackDamage} dégâts !");
+            _lastAttackTime = Time.time;
+
+            PlayerHealth playerHealth = _target.GetComponent<PlayerHealth>();
+            if (playerHealth != null && playerHealth.isOwner)
+            {
+                playerHealth.TakeDamage(30);
+            }
+
+            Debug.Log($"{name} attaque {_target.name} pour 30 dégâts !");
         }
     }
 

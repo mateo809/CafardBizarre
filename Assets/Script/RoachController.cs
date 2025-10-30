@@ -14,6 +14,7 @@ public class RoachController : NetworkBehaviour
 
     [Header("Rotation")]
     [SerializeField] private float _rotationSpeed = 10f;
+    [SerializeField] private float _rotationInputSpeed = 180f;
 
     [Header("Jump / Glide")]
     [SerializeField] private float _jumpForce = 6f;
@@ -35,6 +36,8 @@ public class RoachController : NetworkBehaviour
 
     [Header("Camera")]
     [SerializeField] private Transform _cameraPivot;
+
+    [SerializeField] private NetworkAnimator _networkAnimator;
 
     private Rigidbody _rb;
     private Vector2 _moveInput;
@@ -59,10 +62,7 @@ public class RoachController : NetworkBehaviour
         enabled = true;
 
         var playerInput = GetComponent<PlayerInput>();
-        if (playerInput)
-        {
-            playerInput.enabled = true;
-        }
+        if (playerInput) playerInput.enabled = true;
 
         if (!_cameraPivot)
         {
@@ -72,6 +72,7 @@ public class RoachController : NetworkBehaviour
             _cameraPivot = camObj.transform;
         }
     }
+
     private void Awake()
     {
         _rb = GetComponent<Rigidbody>();
@@ -92,166 +93,40 @@ public class RoachController : NetworkBehaviour
         DetectWallOrFloor();
         UpdateState();
         HandleOrientation();
-        HandleRotationTowardsMovement();
+        HandleManualRotation();
         HandleCameraPivot();
 
         Vector3 desiredVelocity = CalculateDesiredVelocity();
         ApplyMovement(desiredVelocity);
         ApplyGravityAndJump();
+
+        UpdateAnimations(); // <-- Synchronisation anims ici
     }
 
-    private void DetectWallOrFloor()
+    private void HandleManualRotation()
     {
-        RaycastHit hit;
-        if (Physics.Raycast(transform.position, transform.forward, out hit, _wallCheckDistance, _climbableLayers) ||
-            Physics.Raycast(transform.position, -transform.forward, out hit, _wallCheckDistance, _climbableLayers))
-        {
-            float angle = Vector3.Angle(hit.normal, Vector3.up);
-            if (angle > 10f && angle < _maxWallAngle)
-            {
-                _currentSurfaceNormal = hit.normal;
-                _currentState = PlayerState.WallClimbing;
-                return;
-            }
-        }
-
-        if (_currentState == PlayerState.WallClimbing)
-        {
-            if (Physics.Raycast(_groundCheck.position, -_currentSurfaceNormal, out hit, 1f, _climbableLayers))
-            {
-                _currentSurfaceNormal = hit.normal;
-            }
-            else
-            {
-                _currentState = PlayerState.Falling;
-                _currentSurfaceNormal = Vector3.up;
-            }
-        }
-        else
-        {
-            if (Physics.Raycast(_groundCheck.position, Vector3.down, out hit, _groundCheckDistance, _groundLayers))
-            {
-                _currentSurfaceNormal = hit.normal;
-            }
-            else
-            {
-                _currentSurfaceNormal = Vector3.up;
-            }
-        }
+        float yRotation = _moveInput.x * _rotationInputSpeed * Time.fixedDeltaTime;
+        transform.Rotate(Vector3.up, yRotation, Space.Self);
     }
-
-    private void UpdateState()
-    {
-        bool wallDetected = (_currentState != PlayerState.WallClimbing) && IsWallDetected();
-        bool grounded = (_currentState != PlayerState.WallClimbing) && IsGroundedRaycast();
-
-        switch (_currentState)
-        {
-            case PlayerState.Grounded:
-                if (!grounded)
-                    _currentState = PlayerState.Falling;
-                else if (wallDetected)
-                    _currentState = PlayerState.WallClimbing;
-                break;
-
-            case PlayerState.Jumping:
-                if (_rb.linearVelocity.y < 0)
-                    _currentState = PlayerState.Falling;
-                break;
-
-            case PlayerState.Falling:
-                if (grounded)
-                    _currentState = PlayerState.Grounded;
-                else if (_jumpHeld)
-                    _currentState = PlayerState.Gliding;
-                else if (wallDetected)
-                    _currentState = PlayerState.WallClimbing;
-                break;
-
-            case PlayerState.Gliding:
-                if (grounded)
-                    _currentState = PlayerState.Grounded;
-                else if (!_jumpHeld)
-                    _currentState = PlayerState.Falling;
-                break;
-        }
-    }
-
-    private bool IsGroundedRaycast()
-    {
-        RaycastHit hit;
-        return Physics.Raycast(_groundCheck.position, Vector3.down, out hit, _groundCheckDistance, _groundLayers);
-    }
-
-    private bool IsWallDetected()
-    {
-        RaycastHit hit;
-        return Physics.Raycast(transform.position, transform.forward, out hit, _wallCheckDistance, _climbableLayers) ||
-               Physics.Raycast(transform.position, -transform.forward, out hit, _wallCheckDistance, _climbableLayers);
-    }
-
-    private void HandleOrientation()
-    {
-        Quaternion targetRot = Quaternion.FromToRotation(transform.up, _currentSurfaceNormal) * transform.rotation;
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, _alignSpeed * Time.fixedDeltaTime);
-    }
-
-    private void HandleRotationTowardsMovement()
-    {
-        if (_moveInput.sqrMagnitude < 0.01f) return;
-
-        Vector3 moveDir;
-
-        if (_currentState == PlayerState.WallClimbing)
-        {
-            Vector3 up = _currentSurfaceNormal == Vector3.up ? Vector3.up : Vector3.Cross(Vector3.Cross(Vector3.up, _currentSurfaceNormal), _currentSurfaceNormal).normalized;
-            Vector3 right = Vector3.Cross(up, _currentSurfaceNormal).normalized;
-            moveDir = right * _moveInput.x + up * _moveInput.y * -1f;
-        }
-        else
-        {
-            Vector3 camForward = _cameraPivot ? _cameraPivot.forward : transform.forward;
-            Vector3 camRight = _cameraPivot ? _cameraPivot.right : transform.right;
-
-            camForward = Vector3.ProjectOnPlane(camForward, _currentSurfaceNormal).normalized;
-            camRight = Vector3.ProjectOnPlane(camRight, _currentSurfaceNormal).normalized;
-
-            moveDir = (camForward * _moveInput.y + camRight * _moveInput.x).normalized;
-        }
-
-        if (moveDir.sqrMagnitude < 0.01f) return;
-
-        Quaternion targetRot = Quaternion.LookRotation(Vector3.ProjectOnPlane(moveDir, _currentSurfaceNormal), _currentSurfaceNormal);
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, _rotationSpeed * Time.fixedDeltaTime);
-    }
-
 
     private Vector3 CalculateDesiredVelocity()
     {
-        Vector3 moveDir;
+        Vector3 moveDir = Vector3.zero;
 
         if (_currentState == PlayerState.WallClimbing)
         {
-            Vector3 up = _currentSurfaceNormal == Vector3.up ? Vector3.up : Vector3.Cross(Vector3.Cross(Vector3.up, _currentSurfaceNormal), _currentSurfaceNormal).normalized;
+            Vector3 up = Vector3.Cross(Vector3.Cross(Vector3.up, _currentSurfaceNormal), _currentSurfaceNormal).normalized;
             Vector3 right = Vector3.Cross(up, _currentSurfaceNormal).normalized;
-
-            moveDir = right * _moveInput.x + up * _moveInput.y * -1f;
+            moveDir = right * _moveInput.x + up * _moveInput.y;
         }
         else
         {
-            Vector3 camForward = _cameraPivot ? _cameraPivot.forward : transform.forward;
-            Vector3 camRight = _cameraPivot ? _cameraPivot.right : transform.right;
-
-            camForward = Vector3.ProjectOnPlane(camForward, Vector3.up).normalized;
-            camRight = Vector3.ProjectOnPlane(camRight, Vector3.up).normalized;
-
-            moveDir = (camForward * _moveInput.y + camRight * _moveInput.x).normalized;
+            moveDir = transform.forward * _moveInput.y;
         }
 
         float speed = _walkSpeed * ((_currentState == PlayerState.Grounded || _currentState == PlayerState.WallClimbing) ? 1f : _airControlMultiplier);
         return moveDir * speed;
     }
-
 
     private void ApplyMovement(Vector3 desiredVelocity)
     {
@@ -297,6 +172,85 @@ public class RoachController : NetworkBehaviour
         }
     }
 
+    private void DetectWallOrFloor()
+    {
+        RaycastHit hit;
+        if (Physics.Raycast(transform.position, transform.forward, out hit, _wallCheckDistance, _climbableLayers) ||
+            Physics.Raycast(transform.position, -transform.forward, out hit, _wallCheckDistance, _climbableLayers))
+        {
+            float angle = Vector3.Angle(hit.normal, Vector3.up);
+            if (angle > 10f && angle < _maxWallAngle)
+            {
+                _currentSurfaceNormal = hit.normal;
+                _currentState = PlayerState.WallClimbing;
+                return;
+            }
+        }
+
+        if (_currentState == PlayerState.WallClimbing)
+        {
+            if (Physics.Raycast(_groundCheck.position, -_currentSurfaceNormal, out hit, 1f, _climbableLayers))
+                _currentSurfaceNormal = hit.normal;
+            else
+            {
+                _currentState = PlayerState.Falling;
+                _currentSurfaceNormal = Vector3.up;
+            }
+        }
+        else
+        {
+            if (Physics.Raycast(_groundCheck.position, Vector3.down, out hit, _groundCheckDistance, _groundLayers))
+                _currentSurfaceNormal = hit.normal;
+            else
+                _currentSurfaceNormal = Vector3.up;
+        }
+    }
+
+    private void UpdateState()
+    {
+        bool wallDetected = (_currentState != PlayerState.WallClimbing) && IsWallDetected();
+        bool grounded = (_currentState != PlayerState.WallClimbing) && IsGroundedRaycast();
+
+        switch (_currentState)
+        {
+            case PlayerState.Grounded:
+                if (!grounded) _currentState = PlayerState.Falling;
+                else if (wallDetected) _currentState = PlayerState.WallClimbing;
+                break;
+            case PlayerState.Jumping:
+                if (_rb.linearVelocity.y < 0) _currentState = PlayerState.Falling;
+                break;
+            case PlayerState.Falling:
+                if (grounded) _currentState = PlayerState.Grounded;
+                else if (_jumpHeld) _currentState = PlayerState.Gliding;
+                else if (wallDetected) _currentState = PlayerState.WallClimbing;
+                break;
+            case PlayerState.Gliding:
+                if (grounded) _currentState = PlayerState.Grounded;
+                else if (!_jumpHeld) _currentState = PlayerState.Falling;
+                break;
+        }
+    }
+
+    private bool IsGroundedRaycast()
+    {
+        RaycastHit hit;
+        return Physics.Raycast(_groundCheck.position, Vector3.down, out hit, _groundCheckDistance, _groundLayers);
+    }
+
+    private bool IsWallDetected()
+    {
+        RaycastHit hit;
+        return Physics.Raycast(transform.position, transform.forward, out hit, _wallCheckDistance, _climbableLayers) ||
+               Physics.Raycast(transform.position, -transform.forward, out hit, _wallCheckDistance, _climbableLayers);
+    }
+
+    private void HandleOrientation()
+    {
+        Quaternion targetRot = Quaternion.FromToRotation(transform.up, _currentSurfaceNormal) * transform.rotation;
+        transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, _alignSpeed * Time.fixedDeltaTime);
+    }
+
     private void HandleCameraPivot()
     {
         if (!_cameraPivot) return;
@@ -308,7 +262,11 @@ public class RoachController : NetworkBehaviour
         _cameraPivot.position = Vector3.Lerp(_cameraPivot.position, desiredPos, Time.fixedDeltaTime * 5f);
     }
 
-    public void OnMove(InputAction.CallbackContext ctx) => _moveInput = ctx.ReadValue<Vector2>();
+    public void OnMove(InputAction.CallbackContext ctx)
+    {
+        _moveInput = ctx.ReadValue<Vector2>();
+    }
+
     public void OnJump(InputAction.CallbackContext ctx)
     {
         if (ctx.started)
@@ -320,6 +278,22 @@ public class RoachController : NetworkBehaviour
         {
             _jumpHeld = false;
         }
+    }
+
+
+    private void UpdateAnimations()
+    {
+        if (_networkAnimator == null) return;
+
+        bool isFlying = _currentState == PlayerState.Jumping ||
+                        _currentState == PlayerState.Falling ||
+                        _currentState == PlayerState.Gliding ||
+                        _currentState == PlayerState.WallClimbing;
+
+        bool isRunning = _currentState == PlayerState.Grounded && _moveInput.sqrMagnitude > 0.01f;
+
+        _networkAnimator.SetBool("Fly", isFlying);
+        _networkAnimator.SetBool("Run", isRunning);
     }
 
     private void OnDrawGizmosSelected()
