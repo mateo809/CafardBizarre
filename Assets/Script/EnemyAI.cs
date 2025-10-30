@@ -14,6 +14,7 @@ public class EnemyAI : MonoBehaviour
     [Range(0, 360)] public float viewAngle = 120f;
     public LayerMask playerLayer;
     public LayerMask obstacleLayer;
+    public GameObject FovTransform;
 
     [Header("Combat")]
     public float attackRange = 1.5f;
@@ -93,19 +94,21 @@ public class EnemyAI : MonoBehaviour
 
     void DetectPlayer()
     {
-        Collider[] hits = Physics.OverlapSphere(transform.position, viewDistance, playerLayer);
+        Vector3 eyePos = FovTransform ? FovTransform.transform.position : transform.position;
+
+        Collider[] hits = Physics.OverlapSphere(eyePos, viewDistance, playerLayer);
         bool playerVisible = false;
 
         foreach (var hit in hits)
         {
             Transform player = hit.transform;
-            Vector3 dirToPlayer = (player.position - transform.position).normalized;
-            float angle = Vector3.Angle(transform.forward, dirToPlayer);
+            Vector3 dirToPlayer = (player.position - eyePos).normalized;
+            float angle = Vector3.Angle(FovTransform ? FovTransform.transform.forward : transform.forward, dirToPlayer);
 
             if (angle < viewAngle * 0.5f)
             {
-                float dist = Vector3.Distance(transform.position, player.position);
-                if (!Physics.Raycast(transform.position + Vector3.up * 0.5f, dirToPlayer, dist, obstacleLayer))
+                float dist = Vector3.Distance(eyePos, player.position);
+                if (!Physics.Raycast(eyePos, dirToPlayer, dist, obstacleLayer))
                 {
                     _target = player;
                     _lastSeenTime = Time.time;

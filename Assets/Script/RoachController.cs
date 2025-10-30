@@ -37,6 +37,7 @@ public class RoachController : NetworkBehaviour
     [Header("Camera")]
     [SerializeField] private Transform _cameraPivot;
 
+    [Header("Network Animation")]
     [SerializeField] private NetworkAnimator _networkAnimator;
 
     private Rigidbody _rb;
@@ -71,6 +72,9 @@ public class RoachController : NetworkBehaviour
             camObj.transform.localPosition = Vector3.zero;
             _cameraPivot = camObj.transform;
         }
+
+        if (_networkAnimator)
+            _networkAnimator.applyRootMotion = false;
     }
 
     private void Awake()
@@ -100,7 +104,7 @@ public class RoachController : NetworkBehaviour
         ApplyMovement(desiredVelocity);
         ApplyGravityAndJump();
 
-        UpdateAnimations(); // <-- Synchronisation anims ici
+        UpdateAnimations();
     }
 
     private void HandleManualRotation()
@@ -117,7 +121,8 @@ public class RoachController : NetworkBehaviour
         {
             Vector3 up = Vector3.Cross(Vector3.Cross(Vector3.up, _currentSurfaceNormal), _currentSurfaceNormal).normalized;
             Vector3 right = Vector3.Cross(up, _currentSurfaceNormal).normalized;
-            moveDir = right * _moveInput.x + up * _moveInput.y;
+            // Inversion pour que Z monte et S descende
+            moveDir = right * _moveInput.x + up * -_moveInput.y;
         }
         else
         {
@@ -130,10 +135,21 @@ public class RoachController : NetworkBehaviour
 
     private void ApplyMovement(Vector3 desiredVelocity)
     {
-        Vector3 vel = _rb.linearVelocity;
-        Vector3 localVel = Vector3.ProjectOnPlane(vel, _currentSurfaceNormal);
-        Vector3 targetVel = Vector3.MoveTowards(localVel, desiredVelocity, _acceleration * Time.fixedDeltaTime);
-        _rb.linearVelocity = targetVel + _currentSurfaceNormal * Vector3.Dot(vel, _currentSurfaceNormal);
+        if (_currentState == PlayerState.WallClimbing)
+        {
+            Vector3 up = Vector3.Cross(Vector3.Cross(Vector3.up, _currentSurfaceNormal), _currentSurfaceNormal).normalized;
+            Vector3 right = Vector3.Cross(up, _currentSurfaceNormal).normalized;
+            Vector3 moveDir = right * _moveInput.x + up * -_moveInput.y;
+            Vector3 targetVel = moveDir * _walkSpeed;
+            _rb.linearVelocity = Vector3.MoveTowards(_rb.linearVelocity, targetVel, _acceleration * Time.fixedDeltaTime);
+        }
+        else
+        {
+            Vector3 vel = _rb.linearVelocity;
+            Vector3 localVel = Vector3.ProjectOnPlane(vel, _currentSurfaceNormal);
+            Vector3 targetVel = Vector3.MoveTowards(localVel, desiredVelocity, _acceleration * Time.fixedDeltaTime);
+            _rb.linearVelocity = targetVel + _currentSurfaceNormal * Vector3.Dot(vel, _currentSurfaceNormal);
+        }
     }
 
     private void ApplyGravityAndJump()
@@ -175,34 +191,43 @@ public class RoachController : NetworkBehaviour
     private void DetectWallOrFloor()
     {
         RaycastHit hit;
-        if (Physics.Raycast(transform.position, transform.forward, out hit, _wallCheckDistance, _climbableLayers) ||
-            Physics.Raycast(transform.position, -transform.forward, out hit, _wallCheckDistance, _climbableLayers))
+        Vector3[] directions = { transform.forward, -transform.forward, transform.right, -transform.right };
+        bool wallFound = false;
+
+        foreach (var dir in directions)
         {
-            float angle = Vector3.Angle(hit.normal, Vector3.up);
-            if (angle > 10f && angle < _maxWallAngle)
+            if (Physics.Raycast(transform.position, dir, out hit, _wallCheckDistance, _climbableLayers))
             {
-                _currentSurfaceNormal = hit.normal;
-                _currentState = PlayerState.WallClimbing;
-                return;
+                float angle = Vector3.Angle(hit.normal, Vector3.up);
+                if (angle > 10f && angle < _maxWallAngle)
+                {
+                    _currentSurfaceNormal = hit.normal;
+                    _currentState = PlayerState.WallClimbing;
+                    wallFound = true;
+                    break;
+                }
             }
         }
 
-        if (_currentState == PlayerState.WallClimbing)
+        if (!wallFound)
         {
-            if (Physics.Raycast(_groundCheck.position, -_currentSurfaceNormal, out hit, 1f, _climbableLayers))
-                _currentSurfaceNormal = hit.normal;
+            if (_currentState == PlayerState.WallClimbing)
+            {
+                if (Physics.Raycast(_groundCheck.position, -_currentSurfaceNormal, out hit, 1f, _climbableLayers))
+                    _currentSurfaceNormal = hit.normal;
+                else
+                {
+                    _currentState = PlayerState.Falling;
+                    _currentSurfaceNormal = Vector3.up;
+                }
+            }
             else
             {
-                _currentState = PlayerState.Falling;
-                _currentSurfaceNormal = Vector3.up;
+                if (Physics.Raycast(_groundCheck.position, Vector3.down, out hit, _groundCheckDistance, _groundLayers))
+                    _currentSurfaceNormal = hit.normal;
+                else
+                    _currentSurfaceNormal = Vector3.up;
             }
-        }
-        else
-        {
-            if (Physics.Raycast(_groundCheck.position, Vector3.down, out hit, _groundCheckDistance, _groundLayers))
-                _currentSurfaceNormal = hit.normal;
-            else
-                _currentSurfaceNormal = Vector3.up;
         }
     }
 
@@ -241,15 +266,16 @@ public class RoachController : NetworkBehaviour
     private bool IsWallDetected()
     {
         RaycastHit hit;
-        return Physics.Raycast(transform.position, transform.forward, out hit, _wallCheckDistance, _climbableLayers) ||
-               Physics.Raycast(transform.position, -transform.forward, out hit, _wallCheckDistance, _climbableLayers);
+        Vector3[] directions = { transform.forward, -transform.forward, transform.right, -transform.right };
+        foreach (var dir in directions)
+        {
+            if (Physics.Raycast(transform.position, dir, out hit, _wallCheckDistance, _climbableLayers))
+                return true;
+        }
+        return false;
     }
 
-    private void HandleOrientation()
-    {
-        Quaternion targetRot = Quaternion.FromToRotation(transform.up, _currentSurfaceNormal) * transform.rotation;
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, _alignSpeed * Time.fixedDeltaTime);
-    }
+    private void HandleOrientation() { Quaternion targetRot = Quaternion.FromToRotation(transform.up, _currentSurfaceNormal) * transform.rotation; transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, _alignSpeed * Time.fixedDeltaTime); }
 
     private void HandleCameraPivot()
     {
@@ -280,20 +306,27 @@ public class RoachController : NetworkBehaviour
         }
     }
 
-
     private void UpdateAnimations()
     {
         if (_networkAnimator == null) return;
 
-        bool isFlying = _currentState == PlayerState.Jumping ||
-                        _currentState == PlayerState.Falling ||
-                        _currentState == PlayerState.Gliding ||
-                        _currentState == PlayerState.WallClimbing;
+        if (_currentState == PlayerState.WallClimbing)
+        {
+            bool isRunningOnWall = _moveInput.sqrMagnitude > 0.01f;
+            _networkAnimator.SetBool("Run", isRunningOnWall);
+            _networkAnimator.SetBool("Fly", false);
+        }
+        else
+        {
+            bool isFlying = _currentState == PlayerState.Jumping ||
+                            _currentState == PlayerState.Falling ||
+                            _currentState == PlayerState.Gliding;
 
-        bool isRunning = _currentState == PlayerState.Grounded && _moveInput.sqrMagnitude > 0.01f;
+            bool isRunning = _currentState == PlayerState.Grounded && _moveInput.sqrMagnitude > 0.01f;
 
-        _networkAnimator.SetBool("Fly", isFlying);
-        _networkAnimator.SetBool("Run", isRunning);
+            _networkAnimator.SetBool("Fly", isFlying);
+            _networkAnimator.SetBool("Run", isRunning);
+        }
     }
 
     private void OnDrawGizmosSelected()
