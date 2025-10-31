@@ -14,20 +14,16 @@ public class SpectatorController : NetworkBehaviour
 
     [Header("Camera")]
     public Camera spectatorCam;
-    [Tooltip("Hauteur de la caméra au-dessus du joueur ciblé")]
     public float cameraHeight = 1.5f;
-    [Tooltip("Distance de recul de la caméra derrière le joueur")]
     public float cameraDistance = 3f;
 
     private List<PlayerHealth> alivePlayers = new List<PlayerHealth>();
     private int currentIndex = 0;
     private PlayerHealth localPlayer;
-
     private bool isSpectating = false;
 
     void Start()
     {
-        // Désactive UI et caméra au lancement
         if (nextButton != null) nextButton.gameObject.SetActive(false);
         if (prevButton != null) prevButton.gameObject.SetActive(false);
         if (targetText != null) targetText.gameObject.SetActive(false);
@@ -41,32 +37,28 @@ public class SpectatorController : NetworkBehaviour
 
     public void ActivateSpectator(PlayerHealth player)
     {
-        if (!player.isOwner) return; // uniquement pour le joueur local
+        if (!player.isOwner) return;
 
         localPlayer = player;
-        StartCoroutine(WaitAndActivateSpectator());
+        StartCoroutine(WaitAndInit());
     }
 
-    private IEnumerator WaitAndActivateSpectator()
+    private IEnumerator WaitAndInit()
     {
-        // attendre 1 frame pour que la liste PlayerHealth.AllPlayers se mette à jour
-        yield return null;
-        yield return new WaitForSeconds(0.1f);
+        // Laisse le temps à PurrNet de synchroniser les autres joueurs
+        yield return new WaitForSeconds(0.25f);
 
         RefreshPlayersList();
 
-        Debug.Log($"[Spectator] Joueurs vivants détectés : {alivePlayers.Count}");
-
         if (alivePlayers.Count == 0)
         {
-            Debug.LogWarning("[Spectator] Aucun joueur vivant à observer !");
+            Debug.LogWarning("[Spectator] Aucun joueur vivant trouvé !");
             yield break;
         }
 
-        currentIndex = 0;
         isSpectating = true;
+        currentIndex = 0;
 
-        // Active la caméra et l'UI
         if (spectatorCam != null) spectatorCam.gameObject.SetActive(true);
         if (nextButton != null) nextButton.gameObject.SetActive(true);
         if (prevButton != null) prevButton.gameObject.SetActive(true);
@@ -87,8 +79,7 @@ public class SpectatorController : NetworkBehaviour
                 alivePlayers.Add(p);
         }
 
-        if (currentIndex >= alivePlayers.Count)
-            currentIndex = 0;
+        Debug.Log($"[Spectator] Joueurs vivants : {alivePlayers.Count}");
     }
 
     void LateUpdate()
@@ -106,12 +97,10 @@ public class SpectatorController : NetworkBehaviour
 
         Transform t = target.transform;
 
-        // positionne la caméra légèrement derrière et au-dessus du joueur
         Vector3 offset = -t.forward * cameraDistance + Vector3.up * cameraHeight;
         spectatorCam.transform.position = t.position + offset;
         spectatorCam.transform.LookAt(t.position + Vector3.up * cameraHeight);
 
-        // texte UI
         if (targetText != null)
             targetText.text = $"Spectating: {target.gameObject.name}";
     }
@@ -122,6 +111,7 @@ public class SpectatorController : NetworkBehaviour
         currentIndex = (currentIndex + 1) % alivePlayers.Count;
         UpdateCamera();
     }
+
     public void PrevPlayer()
     {
         if (alivePlayers.Count == 0) return;
