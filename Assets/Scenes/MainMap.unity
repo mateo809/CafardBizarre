@@ -1524,7 +1524,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PurrNet.Runtime::PurrNet.StatisticsManager
   checkInterval: 0.33
-  placement: 1
+  placement: 2
   _displayType: 3
   fontSize: 13
   textColor: {r: 1, g: 1, b: 1, a: 1}

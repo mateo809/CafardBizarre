@@ -13,10 +13,11 @@ public class PlayerHealth : NetworkBehaviour
     public bool invincible = false;
 
     [Header("UI")]
-    public GameObject healthBarPrefab; 
+    public GameObject healthBarPrefab;
 
     private Slider _healthSlider;
     private GameObject _healthBarInstance;
+    private HealthBarUI _healthBarUI;
 
     protected override void OnSpawned()
     {
@@ -33,12 +34,18 @@ public class PlayerHealth : NetworkBehaviour
             if (canvas != null)
             {
                 _healthBarInstance = Instantiate(healthBarPrefab, canvas.transform, false);
-                _healthSlider = _healthBarInstance.GetComponent<Slider>();
+
+                _healthSlider = _healthBarInstance.GetComponentInChildren<Slider>();
+                _healthBarUI = _healthBarInstance.GetComponent<HealthBarUI>();
+
                 if (_healthSlider != null)
                 {
                     _healthSlider.maxValue = maxHealth;
                     _healthSlider.value = currentHealth;
                 }
+
+                if (_healthBarUI != null)
+                    _healthBarUI.SetHealth(currentHealth, maxHealth);
             }
         }
     }
@@ -67,6 +74,9 @@ public class PlayerHealth : NetworkBehaviour
     {
         if (_healthSlider != null)
             _healthSlider.value = currentHealth;
+
+        if (_healthBarUI != null)
+            _healthBarUI.SetHealth(currentHealth, maxHealth);
     }
 
     private void Die()
