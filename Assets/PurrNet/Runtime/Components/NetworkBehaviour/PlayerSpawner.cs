@@ -81,45 +81,13 @@ namespace PurrNet
 
         private void OnPlayerLoadedScene(PlayerID player, SceneID scene, bool asServer)
         {
-            var main = NetworkManager.main;
-
-            if (!main || !main.TryGetModule(out ScenesModule scenes, true))
-                return;
-
-            var unityScene = gameObject.scene;
-
-            if (!scenes.TryGetSceneID(unityScene, out var sceneID))
-                return;
-
-            if (sceneID != scene)
-                return;
-
-            if (!asServer)
-                return;
-
+            var main = NetworkManager.main; if (!main || !main.TryGetModule(out ScenesModule scenes, true))
+                return; var unityScene = gameObject.scene; if (!scenes.TryGetSceneID(unityScene, out var sceneID))
+                return; if (sceneID != scene)
+                return; if (!asServer) return;
             bool isDestroyOnDisconnectEnabled = main.networkRules.ShouldDespawnOnOwnerDisconnect();
-            if (!_ignoreNetworkRules && !isDestroyOnDisconnectEnabled && main.TryGetModule(out GlobalOwnershipModule ownership, true) &&
-                ownership.PlayerOwnsSomething(player))
-                return;
-
-            GameObject newPlayer;
-
-            CleanupSpawnPoints();
-
-            if (spawnPoints.Count > 0)
-            {
-                var spawnPoint = spawnPoints[_currentSpawnPoint];
-                _currentSpawnPoint = (_currentSpawnPoint + 1) % spawnPoints.Count;
-                newPlayer = UnityProxy.Instantiate(_playerPrefab, spawnPoint.position, spawnPoint.rotation, unityScene);
-            }
-            else
-            {
-                _playerPrefab.transform.GetPositionAndRotation(out var position, out var rotation);
-                newPlayer = UnityProxy.Instantiate(_playerPrefab, position, rotation, unityScene);
-            }
-
-            if (newPlayer.TryGetComponent(out NetworkIdentity identity))
-                identity.GiveOwnership(player);
+            if (!_ignoreNetworkRules && !isDestroyOnDisconnectEnabled && main.TryGetModule(out GlobalOwnershipModule ownership, true) && ownership.PlayerOwnsSomething(player)) return; GameObject newPlayer; CleanupSpawnPoints(); if (spawnPoints.Count > 0) { var spawnPoint = spawnPoints[_currentSpawnPoint]; _currentSpawnPoint = (_currentSpawnPoint + 1) % spawnPoints.Count; newPlayer = UnityProxy.Instantiate(_playerPrefab, spawnPoint.position, spawnPoint.rotation, unityScene); } else { _playerPrefab.transform.GetPositionAndRotation(out var position, out var rotation); newPlayer = UnityProxy.Instantiate(_playerPrefab, position, rotation, unityScene); }
+            if (newPlayer.TryGetComponent(out NetworkIdentity identity)) identity.GiveOwnership(player);
         }
     }
 }
