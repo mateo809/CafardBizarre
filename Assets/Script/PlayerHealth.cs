@@ -1,11 +1,10 @@
-using PurrNet;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class PlayerHealth : NetworkBehaviour
+public class PlayerHealth : MonoBehaviour
 {
-    public static List<PlayerHealth> AllPlayers = new List<PlayerHealth>(); // liste globale
+    public static List<PlayerHealth> AllPlayers = new List<PlayerHealth>(); 
 
     [Header("Stats")]
     public float currentHealth;
@@ -22,27 +21,22 @@ public class PlayerHealth : NetworkBehaviour
     private Renderer[] _renderers;
     private MonoBehaviour[] _controlScripts;
 
-    protected override void OnSpawned()
+    private bool _isDead = false;
+
+    void Awake()
     {
-        base.OnSpawned();
+        AllPlayers.Add(this);
+    }
 
-        AllPlayers.Add(this); // ajouter à la liste globale
-
-        if (!isOwner)
-        {
-            enabled = false;
-            return;
-        }
-
-        enabled = true;
+    void Start()
+    {
         currentHealth = maxHealth;
 
         _colliders = GetComponentsInChildren<Collider>(true);
         _renderers = GetComponentsInChildren<Renderer>(true);
         _controlScripts = GetComponents<MonoBehaviour>();
 
-        // Health Bar UI
-        if (healthBarPrefab != null && _healthBarInstance == null)
+        if (healthBarPrefab != null)
         {
             Canvas canvas = GameObject.FindObjectOfType<Canvas>();
             if (canvas != null)
@@ -58,14 +52,16 @@ public class PlayerHealth : NetworkBehaviour
         }
     }
 
-    private void OnDestroy()
+    void OnDestroy()
     {
-        AllPlayers.Remove(this); // retirer de la liste globale
+        AllPlayers.Remove(this);
+        if (_healthBarInstance != null)
+            Destroy(_healthBarInstance);
     }
 
     public void TakeDamage(float amount)
     {
-        if (!isOwner || invincible || amount <= 0f) return;
+        if (_isDead || invincible || amount <= 0f) return;
 
         currentHealth -= amount;
         currentHealth = Mathf.Clamp(currentHealth, 0f, maxHealth);
@@ -83,23 +79,22 @@ public class PlayerHealth : NetworkBehaviour
 
     private void Die()
     {
-        RPC_SetPlayerDead();
+        if (_isDead) return;
+        _isDead = true;
 
-        if (isOwner)
+        SetPlayerVisible(false);
+        SetPlayerControllable(false);
+
+        SpectatorController spectator = FindAnyObjectByType<SpectatorController>();
+        if (spectator != null)
         {
-            SpectatorController spectator = FindAnyObjectByType<SpectatorController>();
-            if (spectator != null)
-            {
-                Debug.Log("trouver");
-                spectator.ActivateSpectator(this);
-            }
-            else
-            {
-                Debug.LogWarning("SpectatorController introuvable dans la scène !");
-            }
+            spectator.ActivateSpectator(this);
+        }
+        else
+        {
+            Debug.LogWarning("SpectatorController introuvable dans la scène !");
         }
     }
-
 
     private void SetPlayerVisible(bool visible)
     {
@@ -117,12 +112,5 @@ public class PlayerHealth : NetworkBehaviour
             if (s == this) continue;
             s.enabled = enable;
         }
-    }
-
-    [ServerRpc]
-    private void RPC_SetPlayerDead()
-    {
-        SetPlayerVisible(false);
-        SetPlayerControllable(false);
     }
 }

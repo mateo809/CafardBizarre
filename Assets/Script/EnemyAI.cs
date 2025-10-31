@@ -215,14 +215,14 @@ public class EnemyAI : MonoBehaviour
             _lastAttackTime = Time.time;
 
             PlayerHealth playerHealth = _target.GetComponent<PlayerHealth>();
-            if (playerHealth != null && playerHealth.isOwner)
+            if (playerHealth != null && !playerHealth.invincible)
             {
                 playerHealth.TakeDamage(30);
+                Debug.Log($"{name} attaque {_target.name} pour 30 dégâts !");
             }
-
-            Debug.Log($"{name} attaque {_target.name} pour 30 dégâts !");
         }
     }
+
 
     void OnDrawGizmosSelected()
     {
