@@ -715,6 +715,8 @@ MonoBehaviour:
   prevButton: {fileID: 794739459}
   targetText: {fileID: 1868771792}
   spectatorCam: {fileID: 1367529796}
+  cameraHeight: 3
+  cameraDistance: 10
 --- !u!4 &748150829
 Transform:
   m_ObjectHideFlags: 0
