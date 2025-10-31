@@ -115,11 +115,9 @@ public class RoachController : NetworkBehaviour
 
     private Vector3 CalculateDesiredVelocity()
     {
-        // Direction de déplacement en fonction de l'orientation du cafard
         Vector3 moveDir = (transform.forward * _moveInput.y) + (transform.right * _moveInput.x);
         moveDir = moveDir.normalized;
 
-        // Vitesse selon l'état
         float speed = _walkSpeed * ((_currentState == PlayerState.Grounded || _currentState == PlayerState.WallClimbing) ? 1f : _airControlMultiplier);
 
         return moveDir * speed;
@@ -130,11 +128,9 @@ public class RoachController : NetworkBehaviour
     {
         Vector3 vel = _rb.linearVelocity;
 
-        // On garde la composante parallèle à la surface
         Vector3 localVel = Vector3.ProjectOnPlane(vel, _currentSurfaceNormal);
         Vector3 targetVel = Vector3.MoveTowards(localVel, desiredVelocity, _acceleration * Time.fixedDeltaTime);
 
-        // On conserve la composante perpendiculaire à la surface (collage au mur)
         _rb.linearVelocity = targetVel + _currentSurfaceNormal * Vector3.Dot(vel, _currentSurfaceNormal);
     }
 
@@ -264,10 +260,8 @@ public class RoachController : NetworkBehaviour
 
     private void HandleOrientation()
     {
-        // Oriente le haut du cafard selon la normale
         Quaternion alignToSurface = Quaternion.FromToRotation(transform.up, _currentSurfaceNormal) * transform.rotation;
 
-        // Oriente le "forward" du cafard pour qu’il reste tangentiel à la surface
         Vector3 projectedForward = Vector3.ProjectOnPlane(transform.forward, _currentSurfaceNormal).normalized;
         if (projectedForward.sqrMagnitude > 0.001f)
         {

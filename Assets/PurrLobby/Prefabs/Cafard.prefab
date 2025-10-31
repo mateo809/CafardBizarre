@@ -494,7 +494,7 @@ MonoBehaviour:
   _jumpCooldown: 0.35
   _wallCheckDistance: 1
   _alignSpeed: 8
-  _maxWallAngle: 130
+  _maxWallAngle: 360
   _climbableLayers:
     serializedVersion: 2
     m_Bits: 128
@@ -602,8 +602,7 @@ MonoBehaviour:
   currentHealth: 0
   maxHealth: 100
   invincible: 0
-  respawnCooldown: 5
-  respawnCanvasPrefab: {fileID: 554023356575571339, guid: f12985c7e2a30494c913dc5b636231fc, type: 3}
+  healthBarPrefab: {fileID: 4834609640097087631, guid: fdbc8736852020a49b57709badcf8a1d, type: 3}
 --- !u!95 &25748041417499695
 Animator:
   serializedVersion: 7

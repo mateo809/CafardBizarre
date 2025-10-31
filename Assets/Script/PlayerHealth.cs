@@ -1,24 +1,22 @@
 using PurrNet;
-using System.Collections;
-using TMPro;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class PlayerHealth : NetworkBehaviour
 {
+    public static List<PlayerHealth> AllPlayers = new List<PlayerHealth>(); // liste globale
+
     [Header("Stats")]
     public float currentHealth;
     public float maxHealth = 100f;
     public bool invincible = false;
 
-    [Header("Respawn")]
-    public float respawnCooldown = 5f;
-    private Vector3 _spawnPosition;
-    private Quaternion _spawnRotation;
-
     [Header("UI")]
-    public GameObject respawnCanvasPrefab;
-    private GameObject _respawnCanvasInstance;
-    private TMP_Text _respawnText;
+    public GameObject healthBarPrefab;
+
+    private GameObject _healthBarInstance;
+    private Slider _healthSlider;
 
     private Collider[] _colliders;
     private Renderer[] _renderers;
@@ -27,6 +25,8 @@ public class PlayerHealth : NetworkBehaviour
     protected override void OnSpawned()
     {
         base.OnSpawned();
+
+        AllPlayers.Add(this); // ajouter à la liste globale
 
         if (!isOwner)
         {
@@ -37,28 +37,30 @@ public class PlayerHealth : NetworkBehaviour
         enabled = true;
         currentHealth = maxHealth;
 
-        _spawnPosition = transform.position;
-        _spawnRotation = transform.rotation;
-
         _colliders = GetComponentsInChildren<Collider>(true);
         _renderers = GetComponentsInChildren<Renderer>(true);
         _controlScripts = GetComponents<MonoBehaviour>();
 
-        if (respawnCanvasPrefab != null && _respawnCanvasInstance == null)
+        // Health Bar UI
+        if (healthBarPrefab != null && _healthBarInstance == null)
         {
-            _respawnCanvasInstance = Instantiate(respawnCanvasPrefab);
-            _respawnCanvasInstance.SetActive(false);
-
-            if (_respawnCanvasInstance.transform.childCount >= 3)
+            Canvas canvas = GameObject.FindObjectOfType<Canvas>();
+            if (canvas != null)
             {
-                var child = _respawnCanvasInstance.transform.GetChild(2);
-                _respawnText = child.GetComponent<TMP_Text>();
-            }
-            else
-            {
-                Debug.LogWarning("pas assez d’enfants");
+                _healthBarInstance = Instantiate(healthBarPrefab, canvas.transform, false);
+                _healthSlider = _healthBarInstance.GetComponent<Slider>();
+                if (_healthSlider != null)
+                {
+                    _healthSlider.maxValue = maxHealth;
+                    _healthSlider.value = currentHealth;
+                }
             }
         }
+    }
+
+    private void OnDestroy()
+    {
+        AllPlayers.Remove(this); // retirer de la liste globale
     }
 
     public void TakeDamage(float amount)
@@ -67,54 +69,37 @@ public class PlayerHealth : NetworkBehaviour
 
         currentHealth -= amount;
         currentHealth = Mathf.Clamp(currentHealth, 0f, maxHealth);
+        UpdateHealthUI();
 
         if (currentHealth <= 0f)
             Die();
     }
 
-    public void Heal(float amount)
+    private void UpdateHealthUI()
     {
-        if (!isOwner || amount <= 0f) return;
-
-        currentHealth += amount;
-        currentHealth = Mathf.Clamp(currentHealth, 0f, maxHealth);
+        if (_healthSlider != null)
+            _healthSlider.value = currentHealth;
     }
 
     private void Die()
     {
-        if (_respawnCanvasInstance)
-            _respawnCanvasInstance.SetActive(true);
+        RPC_SetPlayerDead();
 
-        SetPlayerVisible(false);
-        SetPlayerControllable(false);
-
-        transform.position = new Vector3(0, -100f, 0);
-
-        StartCoroutine(_RespawnCoroutine());
-    }
-
-    private IEnumerator _RespawnCoroutine()
-    {
-        float timer = respawnCooldown;
-
-        while (timer > 0f)
+        if (isOwner)
         {
-            if (_respawnText) _respawnText.text = Mathf.Ceil(timer).ToString();
-            yield return new WaitForSeconds(1f);
-            timer -= 1f;
+            SpectatorController spectator = FindAnyObjectByType<SpectatorController>();
+            if (spectator != null)
+            {
+                Debug.Log("trouver");
+                spectator.ActivateSpectator(this);
+            }
+            else
+            {
+                Debug.LogWarning("SpectatorController introuvable dans la scène !");
+            }
         }
-
-        currentHealth = maxHealth;
-
-        transform.position = _spawnPosition;
-        transform.rotation = _spawnRotation;
-
-        SetPlayerVisible(true);
-        SetPlayerControllable(true);
-
-        if (_respawnCanvasInstance)
-            _respawnCanvasInstance.SetActive(false);
     }
+
 
     private void SetPlayerVisible(bool visible)
     {
@@ -132,5 +117,12 @@ public class PlayerHealth : NetworkBehaviour
             if (s == this) continue;
             s.enabled = enable;
         }
+    }
+
+    [ServerRpc]
+    private void RPC_SetPlayerDead()
+    {
+        SetPlayerVisible(false);
+        SetPlayerControllable(false);
     }
 }
