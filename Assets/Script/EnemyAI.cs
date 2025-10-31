@@ -35,6 +35,8 @@ public class EnemyAI : MonoBehaviour
     private float _lastSeenTime;
     private float _lastAttackTime;
 
+    private PlayerStress _playerStress;
+
     private enum State { Patrol, Chase, Attack }
     private State _state = State.Patrol;
 
@@ -116,6 +118,12 @@ public class EnemyAI : MonoBehaviour
                     _agent.speed = chaseSpeed;
                     playerVisible = true;
 
+                    if (_playerStress == null)
+                        _playerStress = _target.GetComponent<PlayerStress>();
+
+                    if (_playerStress != null)
+                        _playerStress.SetDetected(true);
+
                     if (_currentAlert == null && alertPrefab != null && alertSpawnPoint != null)
                     {
                         _currentAlert = Instantiate(alertPrefab, alertSpawnPoint.position, alertSpawnPoint.rotation, alertSpawnPoint);
@@ -126,9 +134,16 @@ public class EnemyAI : MonoBehaviour
             }
         }
 
+        if (!playerVisible && _playerStress != null)
+        {
+            _playerStress.SetDetected(false);
+        }
+
         if (!playerVisible && _target != null && Time.time - _lastSeenTime > loseTargetTime)
         {
             _target = null;
+            _playerStress = null;
+
             _agent.speed = patrolSpeed;
             _state = State.Patrol;
             GoToRandomPoint();
@@ -143,29 +158,17 @@ public class EnemyAI : MonoBehaviour
 
     void Chase()
     {
-        if (_target == null)
-        {
-            if (Time.time - _lastSeenTime > loseTargetTime)
-            {
-                _target = null;
-                _state = State.Patrol;
-                _agent.speed = patrolSpeed;
-                GoToRandomPoint();
-
-                if (_currentAlert != null)
-                {
-                    Destroy(_currentAlert);
-                    _currentAlert = null;
-                }
-            }
-            return;
-        }
+        if (_target == null) return;
 
         float dist = Vector3.Distance(transform.position, _target.position);
 
         if (dist > viewDistance * 1.3f)
         {
             _target = null;
+            if (_playerStress != null)
+                _playerStress.SetDetected(false);
+            _playerStress = null;
+
             _state = State.Patrol;
             _agent.speed = patrolSpeed;
             GoToRandomPoint();
@@ -217,10 +220,10 @@ public class EnemyAI : MonoBehaviour
             PlayerHealth playerHealth = _target.GetComponent<PlayerHealth>();
             if (playerHealth != null && playerHealth.isOwner)
             {
-                playerHealth.TakeDamage(30);
+                playerHealth.TakeDamage(attackDamage);
             }
 
-            Debug.Log($"{name} attaque {_target.name} pour 30 dégâts !");
+            Debug.Log($"{name} attaque {_target.name} pour {attackDamage} dégâts !");
         }
     }
 

@@ -14,6 +14,7 @@ public class PlayerHealth : NetworkBehaviour
 
     [Header("UI")]
     public GameObject healthBarPrefab;
+    public GameObject Stressbar;
 
     private Slider _healthSlider;
     private GameObject _healthBarInstance;
@@ -33,6 +34,7 @@ public class PlayerHealth : NetworkBehaviour
             Canvas canvas = FindObjectOfType<Canvas>();
             if (canvas != null)
             {
+
                 _healthBarInstance = Instantiate(healthBarPrefab, canvas.transform, false);
 
                 _healthSlider = _healthBarInstance.GetComponentInChildren<Slider>();

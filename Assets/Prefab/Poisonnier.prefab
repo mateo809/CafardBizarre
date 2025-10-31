@@ -61,6 +61,7 @@ MonoBehaviour:
   obstacleLayer:
     serializedVersion: 2
     m_Bits: 64
+  FovTransform: {fileID: 0}
   attackRange: 1.5
   attackCooldown: 1.2
   attackDamage: 10
@@ -68,6 +69,7 @@ MonoBehaviour:
   idleTimeAtDestination: 2
   alertPrefab: {fileID: 683302709187201534, guid: 626fc7582b452e744896c554c5f3be75, type: 3}
   alertSpawnPoint: {fileID: 5344580799316050953}
+  _playerStress: {fileID: 6293446610438912992, guid: cabe80f1677fe9b4a96bc18241ce2828, type: 3}
 --- !u!54 &7354765478776888809
 Rigidbody:
   m_ObjectHideFlags: 0

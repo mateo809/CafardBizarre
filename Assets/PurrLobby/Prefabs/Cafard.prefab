@@ -261,6 +261,7 @@ GameObject:
   - component: {fileID: 1753913592632662732}
   - component: {fileID: 25748041417499695}
   - component: {fileID: 2779226584704775151}
+  - component: {fileID: 5823518533225857531}
   m_Layer: 3
   m_Name: Cafard
   m_TagString: Untagged
@@ -603,6 +604,7 @@ MonoBehaviour:
   maxHealth: 100
   invincible: 0
   healthBarPrefab: {fileID: 4834609640097087631, guid: fdbc8736852020a49b57709badcf8a1d, type: 3}
+  Stressbar: {fileID: 1448097673326905178, guid: cabe80f1677fe9b4a96bc18241ce2828, type: 3}
 --- !u!95 &25748041417499695
 Animator:
   serializedVersion: 7
@@ -650,6 +652,29 @@ MonoBehaviour:
   _ownerAuth: 1
   _autoSyncParameters: 0
   _dontSyncParameters: []
+--- !u!114 &5823518533225857531
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2407460229403786492}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eeaf9404e280bdd48a97c0e3b5f2131f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerStress
+  _isSetup: 0
+  _prefabId: -2147483648
+  _componentIndex: -2147483648
+  _shouldBePooled: 0
+  _parent: {fileID: 0}
+  _invertedPathToNearestParent: 
+  _directChildren: []
+  _networkRules: {fileID: 11400000, guid: d8799083b96579a42b8b2d03e4ceae98, type: 2}
+  _visitiblityRules: {fileID: 11400000, guid: 61bfdc7c387406945b02e80f829030d1, type: 2}
+  currentStress: 0
+  stressBarPrefab: {fileID: 1448097673326905178, guid: cabe80f1677fe9b4a96bc18241ce2828, type: 3}
 --- !u!1 &2472727129540226858
 GameObject:
   m_ObjectHideFlags: 0
