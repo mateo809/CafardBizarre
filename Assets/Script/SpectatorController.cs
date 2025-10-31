@@ -45,7 +45,6 @@ public class SpectatorController : NetworkBehaviour
 
     private IEnumerator WaitAndInit()
     {
-        // Laisse le temps à PurrNet de synchroniser les autres joueurs
         yield return new WaitForSeconds(0.25f);
 
         RefreshPlayersList();
