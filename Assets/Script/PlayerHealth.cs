@@ -86,18 +86,13 @@ public class PlayerHealth : NetworkBehaviour
     private void Die()
     {
 
-        if (isOwner)
-        {
-            Destroy(gameObject);
-            SpectatorController spectator = FindAnyObjectByType<SpectatorController>();
-            if (spectator != null)
-            {
-                spectator.ActivateSpectator(this);
-            }
-            else
-            {
-                Debug.LogWarning("SpectatorController introuvable dans la scène !");
-            }
-        }
+        // Active le spectateur
+        SpectatorController spectator = FindAnyObjectByType<SpectatorController>();
+        if (spectator != null)
+            spectator.ActivateSpectator(this);
+
+        // Détruit après un court délai pour que le spectateur puisse récupérer les autres
+        Destroy(gameObject, 0.5f);
     }
+
 }
