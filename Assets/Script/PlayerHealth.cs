@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 public class PlayerHealth : NetworkBehaviour
 {
-    public static List<PlayerHealth> AllPlayers = new List<PlayerHealth>(); // liste globale
+    public static List<PlayerHealth> AllPlayers = new List<PlayerHealth>(); 
 
     [Header("Stats")]
     public float currentHealth;

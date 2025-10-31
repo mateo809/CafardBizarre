@@ -12,7 +12,9 @@ public class SpectatorController : NetworkBehaviour
     public TMP_Text targetText;
 
     [Header("Camera")]
-    public Camera spectatorCam; // assignée dans l'Inspector, désactivée par défaut
+    public Camera spectatorCam;
+    public float cameraHeight = 1.5f; 
+    public float cameraDistance = 0f; 
 
     private List<PlayerHealth> alivePlayers = new List<PlayerHealth>();
     private int currentIndex = 0;
@@ -20,28 +22,27 @@ public class SpectatorController : NetworkBehaviour
 
     void Start()
     {
-        // Assure-toi que les boutons sont désactivés au départ
+        // Désactive l'UI au départ
         if (nextButton != null) nextButton.gameObject.SetActive(false);
         if (prevButton != null) prevButton.gameObject.SetActive(false);
         if (targetText != null) targetText.gameObject.SetActive(false);
 
-        // Lier les boutons aux fonctions
+        // Lien boutons
         if (nextButton != null) nextButton.onClick.AddListener(NextPlayer);
         if (prevButton != null) prevButton.onClick.AddListener(PrevPlayer);
 
-        // La caméra de spectateur doit être inactive par défaut
-        if (spectatorCam != null) spectatorCam.gameObject.SetActive(false);
+        // Caméra inactive par défaut
+        if (spectatorCam != null)
+            spectatorCam.gameObject.SetActive(false);
     }
 
     // Appelée quand le joueur local meurt
     public void ActivateSpectator(PlayerHealth player)
     {
-        if (!player.isOwner) return; // uniquement pour le joueur local
+        if (!player.isOwner) return; // seulement pour le joueur local
 
         localPlayer = player;
         RefreshPlayersList();
-
-        Debug.Log($"Nombre de joueurs vivants : {alivePlayers.Count}");
 
         if (alivePlayers.Count == 0)
         {
@@ -51,11 +52,8 @@ public class SpectatorController : NetworkBehaviour
 
         currentIndex = 0;
 
-        // Active la caméra de spectateur
-        if (spectatorCam != null)
-            spectatorCam.gameObject.SetActive(true);
-
-        // Active l'UI
+        // Active caméra et UI
+        if (spectatorCam != null) spectatorCam.gameObject.SetActive(true);
         if (nextButton != null) nextButton.gameObject.SetActive(true);
         if (prevButton != null) prevButton.gameObject.SetActive(true);
         if (targetText != null) targetText.gameObject.SetActive(true);
@@ -63,7 +61,6 @@ public class SpectatorController : NetworkBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        // Position initiale sur le premier joueur
         UpdateCamera();
     }
 
@@ -71,14 +68,11 @@ public class SpectatorController : NetworkBehaviour
     public void RefreshPlayersList()
     {
         alivePlayers.Clear();
-        Debug.Log("=== RefreshPlayersList ===");
         foreach (var p in PlayerHealth.AllPlayers)
         {
-            Debug.Log($"{p.gameObject.name} - Health: {p.currentHealth}");
             if (p != localPlayer && p.currentHealth > 0)
                 alivePlayers.Add(p);
         }
-        Debug.Log($"Nombre de joueurs vivants après filtrage: {alivePlayers.Count}");
 
         if (currentIndex >= alivePlayers.Count)
             currentIndex = 0;
@@ -89,23 +83,21 @@ public class SpectatorController : NetworkBehaviour
         UpdateCamera();
     }
 
-    // Copie la position et rotation de la caméra du joueur ciblé
     private void UpdateCamera()
     {
         if (alivePlayers.Count == 0 || spectatorCam == null) return;
 
-        Camera targetCam = alivePlayers[currentIndex].GetComponentInChildren<Camera>();
-        if (targetCam != null)
-        {
-            spectatorCam.transform.position = targetCam.transform.position;
-            spectatorCam.transform.rotation = targetCam.transform.rotation;
+        Transform target = alivePlayers[currentIndex].transform;
+        Vector3 camPosition = target.position + Vector3.up * cameraHeight - target.forward * cameraDistance;
 
-            if (targetText != null)
-                targetText.text = alivePlayers[currentIndex].gameObject.name;
-        }
+        spectatorCam.transform.position = camPosition;
+        spectatorCam.transform.rotation = Quaternion.LookRotation(target.position + Vector3.up * cameraHeight - camPosition);
+
+        if (targetText != null)
+            targetText.text = alivePlayers[currentIndex].gameObject.name;
     }
 
-    // Passer au joueur suivant
+    // Joueur suivant
     public void NextPlayer()
     {
         if (alivePlayers.Count == 0) return;
@@ -113,7 +105,7 @@ public class SpectatorController : NetworkBehaviour
         UpdateCamera();
     }
 
-    // Passer au joueur précédent
+    // Joueur précédent
     public void PrevPlayer()
     {
         if (alivePlayers.Count == 0) return;
