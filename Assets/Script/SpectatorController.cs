@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using PurrNet;
@@ -13,46 +14,59 @@ public class SpectatorController : NetworkBehaviour
 
     [Header("Camera")]
     public Camera spectatorCam;
-    public float cameraHeight = 1.5f; 
-    public float cameraDistance = 0f; 
+    [Tooltip("Hauteur de la caméra au-dessus du joueur ciblé")]
+    public float cameraHeight = 1.5f;
+    [Tooltip("Distance de recul de la caméra derrière le joueur")]
+    public float cameraDistance = 3f;
 
     private List<PlayerHealth> alivePlayers = new List<PlayerHealth>();
     private int currentIndex = 0;
     private PlayerHealth localPlayer;
 
+    private bool isSpectating = false;
+
     void Start()
     {
-        // Désactive l'UI au départ
+        // Désactive UI et caméra au lancement
         if (nextButton != null) nextButton.gameObject.SetActive(false);
         if (prevButton != null) prevButton.gameObject.SetActive(false);
         if (targetText != null) targetText.gameObject.SetActive(false);
 
-        // Lien boutons
         if (nextButton != null) nextButton.onClick.AddListener(NextPlayer);
         if (prevButton != null) prevButton.onClick.AddListener(PrevPlayer);
 
-        // Caméra inactive par défaut
         if (spectatorCam != null)
             spectatorCam.gameObject.SetActive(false);
     }
 
-    // Appelée quand le joueur local meurt
     public void ActivateSpectator(PlayerHealth player)
     {
-        if (!player.isOwner) return; // seulement pour le joueur local
+        if (!player.isOwner) return; // uniquement pour le joueur local
 
         localPlayer = player;
+        StartCoroutine(WaitAndActivateSpectator());
+    }
+
+    private IEnumerator WaitAndActivateSpectator()
+    {
+        // attendre 1 frame pour que la liste PlayerHealth.AllPlayers se mette à jour
+        yield return null;
+        yield return new WaitForSeconds(0.1f);
+
         RefreshPlayersList();
+
+        Debug.Log($"[Spectator] Joueurs vivants détectés : {alivePlayers.Count}");
 
         if (alivePlayers.Count == 0)
         {
-            Debug.LogWarning("Aucun joueur vivant à spectate !");
-            return;
+            Debug.LogWarning("[Spectator] Aucun joueur vivant à observer !");
+            yield break;
         }
 
         currentIndex = 0;
+        isSpectating = true;
 
-        // Active caméra et UI
+        // Active la caméra et l'UI
         if (spectatorCam != null) spectatorCam.gameObject.SetActive(true);
         if (nextButton != null) nextButton.gameObject.SetActive(true);
         if (prevButton != null) prevButton.gameObject.SetActive(true);
@@ -64,13 +78,12 @@ public class SpectatorController : NetworkBehaviour
         UpdateCamera();
     }
 
-    // Met à jour la liste des joueurs vivants
     public void RefreshPlayersList()
     {
         alivePlayers.Clear();
         foreach (var p in PlayerHealth.AllPlayers)
         {
-            if (p != localPlayer && p.currentHealth > 0)
+            if (p != null && p != localPlayer && p.currentHealth > 0)
                 alivePlayers.Add(p);
         }
 
@@ -80,32 +93,35 @@ public class SpectatorController : NetworkBehaviour
 
     void LateUpdate()
     {
-        UpdateCamera();
+        if (isSpectating)
+            UpdateCamera();
     }
 
     private void UpdateCamera()
     {
         if (alivePlayers.Count == 0 || spectatorCam == null) return;
 
-        Transform target = alivePlayers[currentIndex].transform;
-        Vector3 camPosition = target.position + Vector3.up * cameraHeight - target.forward * cameraDistance;
+        PlayerHealth target = alivePlayers[currentIndex];
+        if (target == null) return;
 
-        spectatorCam.transform.position = camPosition;
-        spectatorCam.transform.rotation = Quaternion.LookRotation(target.position + Vector3.up * cameraHeight - camPosition);
+        Transform t = target.transform;
 
+        // positionne la caméra légèrement derrière et au-dessus du joueur
+        Vector3 offset = -t.forward * cameraDistance + Vector3.up * cameraHeight;
+        spectatorCam.transform.position = t.position + offset;
+        spectatorCam.transform.LookAt(t.position + Vector3.up * cameraHeight);
+
+        // texte UI
         if (targetText != null)
-            targetText.text = alivePlayers[currentIndex].gameObject.name;
+            targetText.text = $"Spectating: {target.gameObject.name}";
     }
 
-    // Joueur suivant
     public void NextPlayer()
     {
         if (alivePlayers.Count == 0) return;
         currentIndex = (currentIndex + 1) % alivePlayers.Count;
         UpdateCamera();
     }
-
-    // Joueur précédent
     public void PrevPlayer()
     {
         if (alivePlayers.Count == 0) return;
