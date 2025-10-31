@@ -8,7 +8,7 @@ public class PlayerInventory : MonoBehaviour
 {
 
 
-    public GameObject _spawnLocation;
+    
 
 
     private RoachController _ownerController;
@@ -16,8 +16,8 @@ public class PlayerInventory : MonoBehaviour
     private List<InventoryLine> _inventory = new List<InventoryLine>();
     private List<ItemData> _items = new List<ItemData>();
 
-    [SerializeField] private InventoryLine _prefabInventoryLine;
-    [SerializeField] private GameObject _parentInventoryLines;
+    
+
 
     private void Awake()
     {

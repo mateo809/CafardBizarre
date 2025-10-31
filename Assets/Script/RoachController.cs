@@ -34,6 +34,15 @@ public class RoachController : NetworkBehaviour
     [SerializeField] private float _groundCheckDistance = 0.5f;
     [SerializeField] private LayerMask _groundLayers = ~0;
 
+    [Header("Weight & Inventory")]
+    [SerializeField] public float currentHoldingWeight = 0;
+    [SerializeField] public float maxHoldingWeight = 50;
+    [SerializeField] private bool _isInventoryOpen = false;
+    [SerializeField] public int inventoryMaxSize = 4;
+    [SerializeField] private PlayerInventory _inventory;
+    [SerializeField] private InteractionConroller _interactionConroller;
+
+
     [Header("Camera")]
     [SerializeField] private Transform _cameraPivot;
 
@@ -299,6 +308,26 @@ public class RoachController : NetworkBehaviour
         else if (ctx.canceled)
         {
             _jumpHeld = false;
+        }
+    }
+
+    public void OnInventoryOpening(InputAction.CallbackContext context)
+    {
+        if (context.started)
+        {
+            if (_isInventoryOpen)
+            {
+                _isInventoryOpen = false;
+                _inventory.SetInventoryVisibilityAtFalse();
+
+            }
+            else
+            {
+                _isInventoryOpen = true;
+                _inventory.SetInventoryVisibilityAtTrue();
+
+            }
+
         }
     }
 
