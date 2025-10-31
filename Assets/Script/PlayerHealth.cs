@@ -13,22 +13,22 @@ public class PlayerHealth : NetworkBehaviour
     public bool invincible = false;
 
     [Header("UI")]
-    public GameObject healthBarPrefab;
+    public GameObject healthBarPrefab; // prefab du slider
 
-    private GameObject _healthBarInstance;
     private Slider _healthSlider;
+    private GameObject _healthBarInstance;
 
     protected override void OnSpawned()
     {
         base.OnSpawned();
 
-        // Ajoute tous les joueurs à la liste globale (pour le spectateur)
+        // Ajouter tous les joueurs à la liste globale pour le spectateur
         if (!AllPlayers.Contains(this))
             AllPlayers.Add(this);
 
         currentHealth = maxHealth;
 
-        // Initialise la barre de vie uniquement côté owner
+        // Crée la barre de vie uniquement côté joueur local
         if (isOwner && healthBarPrefab != null)
         {
             Canvas canvas = FindObjectOfType<Canvas>();
@@ -36,7 +36,6 @@ public class PlayerHealth : NetworkBehaviour
             {
                 _healthBarInstance = Instantiate(healthBarPrefab, canvas.transform, false);
                 _healthSlider = _healthBarInstance.GetComponent<Slider>();
-
                 if (_healthSlider != null)
                 {
                     _healthSlider.maxValue = maxHealth;
@@ -74,7 +73,7 @@ public class PlayerHealth : NetworkBehaviour
 
     private void Die()
     {
-        // Active le mode spectateur pour le joueur local
+        // Active le spectateur côté joueur local
         if (isOwner)
         {
             SpectatorController spectator = FindAnyObjectByType<SpectatorController>();
@@ -82,7 +81,7 @@ public class PlayerHealth : NetworkBehaviour
                 spectator.ActivateSpectator(this);
         }
 
-        // Laisse un court délai avant destruction pour éviter le "0 joueur vivant"
+        // Détruire le joueur après un court délai
         Destroy(gameObject, 0.5f);
     }
 }
