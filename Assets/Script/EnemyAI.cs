@@ -16,9 +16,13 @@ public class EnemyAI : MonoBehaviour
     public LayerMask obstacleLayer;
     public GameObject FovTransform;
 
+    [Header("Spotlight")]
+    public Light spotlight;
+    public float spotlightDetectionAngle = 30f;
+
     [Header("Combat")]
-    public float attackRange = 1.5f;
-    public float attackCooldown = 1.2f;
+    public float attackRange = 3f;
+    public float attackCooldown = 2f;
     public int attackDamage = 10;
 
     [Header("Comportement")]
@@ -29,25 +33,33 @@ public class EnemyAI : MonoBehaviour
     public GameObject alertPrefab;
     public Transform alertSpawnPoint;
 
+    [Header("Animation")]
+    [SerializeField] private Animator _animator;
+    public bool useRootMotion = false;
+
     private GameObject _currentAlert;
     private NavMeshAgent _agent;
     private Transform _target;
     private float _lastSeenTime;
     private float _lastAttackTime;
-
     private PlayerStress _playerStress;
+    private bool _isAttacking;
 
     private enum State { Patrol, Chase, Attack }
     private State _state = State.Patrol;
 
     void Start()
     {
-        _agent = GetComponent<NavMeshAgent>();
-        if (!_agent)
-            _agent = gameObject.AddComponent<NavMeshAgent>();
+        _agent = GetComponent<NavMeshAgent>() ?? gameObject.AddComponent<NavMeshAgent>();
+        _animator = _animator ?? GetComponentInChildren<Animator>();
+
+        _animator.applyRootMotion = useRootMotion;
+        _agent.updatePosition = !useRootMotion;
+        _agent.updateRotation = !useRootMotion;
 
         _agent.speed = patrolSpeed;
         GoToRandomPoint();
+        SetAnimationState("Walk");
     }
 
     void Update()
@@ -66,38 +78,39 @@ public class EnemyAI : MonoBehaviour
                 Attack();
                 break;
         }
+
+        UpdateSpotlight();
+
+        if (useRootMotion) OnAnimatorMove();
     }
 
     void Patrol()
     {
         if (!_agent.pathPending && _agent.remainingDistance <= _agent.stoppingDistance)
-        {
             StartCoroutine(WaitAndMoveRandom());
-        }
     }
 
     IEnumerator WaitAndMoveRandom()
     {
-        _state = State.Patrol;
         yield return new WaitForSeconds(idleTimeAtDestination);
         GoToRandomPoint();
+        SetAnimationState("Walk");
     }
 
     void GoToRandomPoint()
     {
-        Vector3 randomDirection = Random.insideUnitSphere * patrolRadius;
-        randomDirection += transform.position;
-
+        Vector3 randomDirection = Random.insideUnitSphere * patrolRadius + transform.position;
         if (NavMesh.SamplePosition(randomDirection, out NavMeshHit hit, patrolRadius, NavMesh.AllAreas))
         {
+            _agent.speed = patrolSpeed;
             _agent.SetDestination(hit.position);
+            SetAnimationState("Walk");
         }
     }
 
     void DetectPlayer()
     {
         Vector3 eyePos = FovTransform ? FovTransform.transform.position : transform.position;
-
         Collider[] hits = Physics.OverlapSphere(eyePos, viewDistance, playerLayer);
         bool playerVisible = false;
 
@@ -110,12 +123,14 @@ public class EnemyAI : MonoBehaviour
             if (angle < viewAngle * 0.5f)
             {
                 float dist = Vector3.Distance(eyePos, player.position);
+
                 if (!Physics.Raycast(eyePos, dirToPlayer, dist, obstacleLayer))
                 {
                     _target = player;
                     _lastSeenTime = Time.time;
-                    _state = State.Chase;
-                    _agent.speed = chaseSpeed;
+                    _state = State.Attack;
+                    _agent.isStopped = true;
+                    SetAnimationState("Attack");
                     playerVisible = true;
 
                     if (_playerStress == null)
@@ -124,35 +139,29 @@ public class EnemyAI : MonoBehaviour
                     if (_playerStress != null)
                         _playerStress.SetDetected(true);
 
-                    if (_currentAlert == null && alertPrefab != null && alertSpawnPoint != null)
-                    {
+                    if (_currentAlert == null && alertPrefab && alertSpawnPoint)
                         _currentAlert = Instantiate(alertPrefab, alertSpawnPoint.position, alertSpawnPoint.rotation, alertSpawnPoint);
-                    }
-
                     break;
                 }
             }
         }
 
-        if (!playerVisible && _playerStress != null)
+        if (!playerVisible && _target != null)
+        {
+            float distToTarget = Vector3.Distance(transform.position, _target.position);
+            if (distToTarget > viewDistance * 1.5f || Time.time - _lastSeenTime > loseTargetTime)
+            {
+                GoBackToPatrol();
+            }
+            else
+            {
+                if (_playerStress != null)
+                    _playerStress.SetDetected(false);
+            }
+        }
+        else if (!playerVisible && _playerStress != null)
         {
             _playerStress.SetDetected(false);
-        }
-
-        if (!playerVisible && _target != null && Time.time - _lastSeenTime > loseTargetTime)
-        {
-            _target = null;
-            _playerStress = null;
-
-            _agent.speed = patrolSpeed;
-            _state = State.Patrol;
-            GoToRandomPoint();
-
-            if (_currentAlert != null)
-            {
-                Destroy(_currentAlert);
-                _currentAlert = null;
-            }
         }
     }
 
@@ -162,22 +171,9 @@ public class EnemyAI : MonoBehaviour
 
         float dist = Vector3.Distance(transform.position, _target.position);
 
-        if (dist > viewDistance * 1.3f)
+        if (dist > viewDistance * 1.5f)
         {
-            _target = null;
-            if (_playerStress != null)
-                _playerStress.SetDetected(false);
-            _playerStress = null;
-
-            _state = State.Patrol;
-            _agent.speed = patrolSpeed;
-            GoToRandomPoint();
-
-            if (_currentAlert != null)
-            {
-                Destroy(_currentAlert);
-                _currentAlert = null;
-            }
+            GoBackToPatrol();
             return;
         }
 
@@ -185,11 +181,14 @@ public class EnemyAI : MonoBehaviour
         {
             _state = State.Attack;
             _agent.isStopped = true;
+            SetAnimationState("Attack");
         }
         else
         {
             _agent.isStopped = false;
             _agent.SetDestination(_target.position);
+            SetAnimationState("Run");
+            FaceTarget(_target.position);
         }
     }
 
@@ -197,47 +196,133 @@ public class EnemyAI : MonoBehaviour
     {
         if (_target == null)
         {
-            _state = State.Patrol;
-            _agent.isStopped = false;
-            GoToRandomPoint();
+            GoBackToPatrol();
             return;
         }
 
-        transform.LookAt(_target.position);
         float dist = Vector3.Distance(transform.position, _target.position);
 
-        if (dist > attackRange + 0.5f)
+        bool playerFar = dist > attackRange + 2f;
+        bool lostForAWhile = Time.time - _lastSeenTime > 1.0f;
+
+        if (playerFar && lostForAWhile)
         {
-            _state = State.Chase;
-            _agent.isStopped = false;
+            GoBackToPatrol();
             return;
         }
 
-        if (Time.time - _lastAttackTime > attackCooldown)
-        {
-            _lastAttackTime = Time.time;
+        FaceTarget(_target.position);
 
+        if (!_isAttacking && Time.time >= _lastAttackTime + attackCooldown)
+        {
+            StartCoroutine(DoAttack());
+        }
+    }
+
+    IEnumerator DoAttack()
+    {
+        _isAttacking = true;
+        _lastAttackTime = Time.time;
+
+        _animator.SetBool("Attack", true);
+
+        float remainingCooldown = Mathf.Max(0, attackCooldown);
+        yield return new WaitForSeconds(remainingCooldown);
+
+        _animator.SetBool("Attack", false);
+
+
+        _isAttacking = false;
+    }
+
+    public void ApplyAttackDamage()
+    {
+        if (_target != null)
+        {
             PlayerHealth playerHealth = _target.GetComponent<PlayerHealth>();
             if (playerHealth != null && playerHealth.isOwner)
-            {
                 playerHealth.TakeDamage(attackDamage);
-            }
 
             Debug.Log($"{name} attaque {_target.name} pour {attackDamage} dégâts !");
         }
     }
 
+
+    void GoBackToPatrol()
+    {
+        _state = State.Patrol;
+        _agent.isStopped = false;
+        _target = null;
+        _playerStress = null;
+        if (_currentAlert) Destroy(_currentAlert);
+        GoToRandomPoint();
+        SetAnimationState("Walk");
+    }
+
+    void FaceTarget(Vector3 targetPosition)
+    {
+        Vector3 direction = (targetPosition - transform.position).normalized;
+        direction.y = 0;
+        if (direction != Vector3.zero)
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direction), Time.deltaTime * 5f);
+    }
+
+    void SetAnimationState(string state)
+    {
+        if (_animator == null) return;
+        _animator.SetBool("Walk", false);
+        _animator.SetBool("Run", false);
+        if (state != "Attack") _animator.SetBool("Attack", false);
+
+        switch (state)
+        {
+            case "Walk": _animator.SetBool("Walk", true); break;
+            case "Run": _animator.SetBool("Run", true); break;
+            case "Attack": _animator.SetBool("Attack", true); break;
+        }
+    }
+
+    void OnAnimatorMove()
+    {
+        if (useRootMotion && _agent && _animator)
+        {
+            _agent.velocity = _animator.deltaPosition / Time.deltaTime;
+            transform.rotation = _animator.rootRotation;
+        }
+    }
+
+    void UpdateSpotlight()
+    {
+        if (!spotlight) return;
+
+        if (_target != null)
+        {
+            Vector3 dirToTarget = (_target.position - spotlight.transform.position).normalized;
+            spotlight.transform.rotation = Quaternion.LookRotation(dirToTarget);
+        }
+        else if (FovTransform)
+        {
+            spotlight.transform.rotation = FovTransform.transform.rotation;
+        }
+    }
+
     void OnDrawGizmosSelected()
     {
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(transform.position, viewDistance);
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawWireSphere(transform.position, patrolRadius);
+        if (!FovTransform) return;
 
-        Vector3 left = Quaternion.Euler(0, -viewAngle / 2, 0) * transform.forward;
-        Vector3 right = Quaternion.Euler(0, viewAngle / 2, 0) * transform.forward;
-        Gizmos.color = Color.red;
-        Gizmos.DrawLine(transform.position, transform.position + left * viewDistance);
-        Gizmos.DrawLine(transform.position, transform.position + right * viewDistance);
+        Vector3 pos = FovTransform.transform.position;
+        Vector3 forward = FovTransform.transform.forward;
+
+        Gizmos.color = new Color(1, 1, 0, 0.2f);
+        int segments = 30;
+        for (int i = 0; i <= segments; i++)
+        {
+            float angle = -viewAngle / 2 + viewAngle * i / (float)segments;
+            Quaternion rot = Quaternion.AngleAxis(angle, FovTransform.transform.up);
+            Vector3 dir = rot * forward;
+            Gizmos.DrawLine(pos, pos + dir * viewDistance);
+        }
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(pos, viewDistance);
     }
 }
