@@ -14,7 +14,7 @@ public class PlayerHealth : NetworkBehaviour
 
     [Header("UI")]
     public GameObject healthBarPrefab;
-    public GameObject Stressbar;
+    
 
     private Slider _healthSlider;
     private GameObject _healthBarInstance;

@@ -262,6 +262,8 @@ GameObject:
   - component: {fileID: 25748041417499695}
   - component: {fileID: 2779226584704775151}
   - component: {fileID: 5823518533225857531}
+  - component: {fileID: 5865961799253137790}
+  - component: {fileID: 4461063639333435671}
   m_Layer: 3
   m_Name: Cafard
   m_TagString: Untagged
@@ -382,7 +384,19 @@ MonoBehaviour:
     m_ActionId: 6c2ab1b8-8984-453a-af3d-a3c78ae1679a
     m_ActionName: 'Player/Attack[/Mouse/leftButton,/Keyboard/enter]'
   - m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 4565962347646067020}
+        m_TargetAssemblyTypeName: RoachController, Assembly-CSharp
+        m_MethodName: OnInteract
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
     m_ActionId: 852140f2-7766-474d-8707-702459ba45f3
     m_ActionName: 'Player/Interact[/Keyboard/e]'
   - m_PersistentCalls:
@@ -457,6 +471,10 @@ MonoBehaviour:
       m_Calls: []
     m_ActionId: 9caa3d8a-6b2f-4e8e-8bad-6ede561bd9be
     m_ActionName: UI/TrackedDeviceOrientation
+  - m_PersistentCalls:
+      m_Calls: []
+    m_ActionId: 0752c3bc-1dfb-400a-a360-d950e8979dc3
+    m_ActionName: 'Player/DropItem[/Keyboard/g]'
   m_NeverAutoSwitchControlSchemes: 1
   m_DefaultControlScheme: Keyboard&Mouse
   m_DefaultActionMap: Player
@@ -604,7 +622,6 @@ MonoBehaviour:
   maxHealth: 100
   invincible: 0
   healthBarPrefab: {fileID: 4834609640097087631, guid: fdbc8736852020a49b57709badcf8a1d, type: 3}
-  Stressbar: {fileID: 1448097673326905178, guid: cabe80f1677fe9b4a96bc18241ce2828, type: 3}
 --- !u!95 &25748041417499695
 Animator:
   serializedVersion: 7
@@ -675,6 +692,48 @@ MonoBehaviour:
   _visitiblityRules: {fileID: 11400000, guid: 61bfdc7c387406945b02e80f829030d1, type: 2}
   currentStress: 0
   stressBarPrefab: {fileID: 1448097673326905178, guid: cabe80f1677fe9b4a96bc18241ce2828, type: 3}
+  increaseRate: 20
+  decreaseRate: 10
+--- !u!114 &5865961799253137790
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2407460229403786492}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52f5d26728c92fa429301e61a46ffd35, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  _camera: {fileID: 6672137793883591362}
+  _interactionText: {fileID: 0}
+  _interactionDistance: 5
+--- !u!114 &4461063639333435671
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2407460229403786492}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ba875b194dc287d41986b1fc65e854da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  _isSetup: 0
+  _prefabId: -2147483648
+  _componentIndex: -2147483648
+  _shouldBePooled: 0
+  _parent: {fileID: 0}
+  _invertedPathToNearestParent: 
+  _directChildren: []
+  _networkRules: {fileID: 0}
+  _visitiblityRules: {fileID: 0}
+  inventoryPrefab: {fileID: 0}
+  itemBorder: {fileID: 0}
+  itemIcon: {fileID: 0}
+  itemHolded: {fileID: 0}
 --- !u!1 &2472727129540226858
 GameObject:
   m_ObjectHideFlags: 0

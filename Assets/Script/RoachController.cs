@@ -45,6 +45,7 @@ public class RoachController : NetworkBehaviour
     private bool _jumpPressed;
     private bool _jumpHeld;
     private float _nextJumpTime;
+    private InteractionConroller _interactionConroller;
 
     private PlayerState _currentState = PlayerState.Grounded;
     private Vector3 _currentSurfaceNormal = Vector3.up;
@@ -79,6 +80,8 @@ public class RoachController : NetworkBehaviour
 
     private void Awake()
     {
+        _interactionConroller = GetComponent<InteractionConroller>();
+
         _rb = GetComponent<Rigidbody>();
         _rb.useGravity = false;
         _rb.constraints = RigidbodyConstraints.FreezeRotation;
@@ -301,6 +304,15 @@ public class RoachController : NetworkBehaviour
             _jumpHeld = false;
         }
     }
+
+    public void OnInteract(InputAction.CallbackContext ctx)
+    {
+        if (ctx.started)
+        {
+            _interactionConroller.UpdateCurrentInteractable();
+        }
+    }
+
 
     private void UpdateAnimations()
     {
