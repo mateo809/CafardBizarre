@@ -38,6 +38,9 @@ public class EnemyAI : MonoBehaviour
     [SerializeField] private NetworkAnimator _animator;
     public bool useRootMotion = false;
 
+    [Header("VFX")]
+    [SerializeField] private GameObject _attackEffect;
+
     private GameObject _currentAlert;
     private NavMeshAgent _agent;
     private Transform _target;
