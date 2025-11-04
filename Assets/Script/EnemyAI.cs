@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
+using PurrNet;
 
 public class EnemyAI : MonoBehaviour
 {
@@ -34,7 +35,7 @@ public class EnemyAI : MonoBehaviour
     public Transform alertSpawnPoint;
 
     [Header("Animation")]
-    [SerializeField] private Animator _animator;
+    [SerializeField] private NetworkAnimator _animator;
     public bool useRootMotion = false;
 
     private GameObject _currentAlert;
@@ -51,7 +52,7 @@ public class EnemyAI : MonoBehaviour
     void Start()
     {
         _agent = GetComponent<NavMeshAgent>() ?? gameObject.AddComponent<NavMeshAgent>();
-        _animator = _animator ?? GetComponentInChildren<Animator>();
+        _animator = _animator ?? GetComponentInChildren<NetworkAnimator>();
 
         _animator.applyRootMotion = useRootMotion;
         _agent.updatePosition = !useRootMotion;

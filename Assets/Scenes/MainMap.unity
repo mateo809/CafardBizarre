@@ -6593,6 +6593,7 @@ GameObject:
   - component: {fileID: 6564202108076987138}
   - component: {fileID: 6564202108076987137}
   - component: {fileID: 6564202108076987142}
+  - component: {fileID: 6564202108076987143}
   m_Layer: 0
   m_Name: ANIM_POISSONIER_2fbx
   m_TagString: Untagged
@@ -7507,6 +7508,31 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 25.838776, y: 45.847, z: 23.348999}
   m_Center: {x: -0.9744148, y: 51.64351, z: 0.34979248}
+--- !u!114 &6564202108076987143
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5788088304653879738}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e7b598b9d8509d64abb9fdaf07fa3f6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PurrNet.Runtime::PurrNet.NetworkAnimator
+  _isSetup: 0
+  _prefabId: -2147483648
+  _componentIndex: -2147483648
+  _shouldBePooled: 0
+  _parent: {fileID: 0}
+  _invertedPathToNearestParent: 
+  _directChildren: []
+  _networkRules: {fileID: 0}
+  _visitiblityRules: {fileID: 0}
+  _animator: {fileID: 6564202108076987141}
+  _ownerAuth: 1
+  _autoSyncParameters: 0
+  _dontSyncParameters: []
 --- !u!33 &6570795021504473103
 MeshFilter:
   m_ObjectHideFlags: 0
