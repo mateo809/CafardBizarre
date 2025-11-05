@@ -1,11 +1,13 @@
+using PurrNet;
+using System.Collections;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using PurrNet;
 
 [RequireComponent(typeof(Rigidbody))]
 public class RoachController : NetworkBehaviour
 {
-    public enum PlayerState { Grounded, Jumping, Falling, Gliding, WallClimbing }
+    public enum PlayerState { Grounded, Jumping, Falling, Gliding, WallClimbing, Carrying }
 
     [Header("Movement")]
     [SerializeField] private float _walkSpeed = 5f;
@@ -40,13 +42,21 @@ public class RoachController : NetworkBehaviour
     [Header("Network Animation")]
     [SerializeField] private NetworkAnimator _networkAnimator;
 
+    [Header("Item Pickup / Drop")]
+    [SerializeField] private Transform _pickupOrigin;
+    [SerializeField] private Transform _transportPoint;
+    [SerializeField] private float _pickupRange = 3f;
+    [SerializeField] private LayerMask _itemLayer = ~0;
+    private GameObject _carriedItem;
+    private bool _isCarryingObject = false;
+
     private Rigidbody _rb;
     private Vector2 _moveInput;
     private bool _jumpPressed;
     private bool _jumpHeld;
     private float _nextJumpTime;
 
-    private PlayerState _currentState = PlayerState.Grounded;
+    public PlayerState _currentState = PlayerState.Grounded;
     private Vector3 _currentSurfaceNormal = Vector3.up;
 
     protected override void OnSpawned()
@@ -123,7 +133,6 @@ public class RoachController : NetworkBehaviour
         return moveDir * speed;
     }
 
-
     private void ApplyMovement(Vector3 desiredVelocity)
     {
         Vector3 vel = _rb.linearVelocity;
@@ -134,14 +143,13 @@ public class RoachController : NetworkBehaviour
         _rb.linearVelocity = targetVel + _currentSurfaceNormal * Vector3.Dot(vel, _currentSurfaceNormal);
     }
 
-
     private void ApplyGravityAndJump()
     {
         Vector3 gravityDir = -_currentSurfaceNormal;
         float g = (_currentState == PlayerState.Gliding) ? _glideGravity : _gravityStrength;
         _rb.AddForce(gravityDir * g, ForceMode.Acceleration);
 
-        if (_jumpPressed && Time.time >= _nextJumpTime)
+        if (_jumpPressed && Time.time >= _nextJumpTime && _carriedItem == null)
         {
             if (_currentState == PlayerState.Grounded)
             {
@@ -159,6 +167,7 @@ public class RoachController : NetworkBehaviour
             _nextJumpTime = Time.time + _jumpCooldown;
         }
 
+
         if (_currentState == PlayerState.Gliding)
         {
             Vector3 vel = _rb.linearVelocity;
@@ -173,43 +182,46 @@ public class RoachController : NetworkBehaviour
 
     private void DetectWallOrFloor()
     {
-        RaycastHit hit;
-        Vector3[] directions = { transform.forward, -transform.forward, transform.right, -transform.right };
-        bool wallFound = false;
-
-        foreach (var dir in directions)
+        if (!_isCarryingObject)
         {
-            if (Physics.Raycast(transform.position, dir, out hit, _wallCheckDistance, _climbableLayers))
+            RaycastHit hit;
+            Vector3[] directions = { transform.forward, -transform.forward, transform.right, -transform.right };
+            bool wallFound = false;
+
+            foreach (var dir in directions)
             {
-                float angle = Vector3.Angle(hit.normal, Vector3.up);
-                if (angle > 10f && angle < _maxWallAngle)
+                if (Physics.Raycast(transform.position, dir, out hit, _wallCheckDistance, _climbableLayers))
                 {
-                    _currentSurfaceNormal = hit.normal;
-                    _currentState = PlayerState.WallClimbing;
-                    wallFound = true;
-                    break;
+                    float angle = Vector3.Angle(hit.normal, Vector3.up);
+                    if (angle > 10f && angle < _maxWallAngle)
+                    {
+                        _currentSurfaceNormal = hit.normal;
+                        _currentState = PlayerState.WallClimbing;
+                        wallFound = true;
+                        break;
+                    }
                 }
             }
-        }
 
-        if (!wallFound)
-        {
-            if (_currentState == PlayerState.WallClimbing)
+            if (!wallFound)
             {
-                if (Physics.Raycast(_groundCheck.position, -_currentSurfaceNormal, out hit, 1f, _climbableLayers))
-                    _currentSurfaceNormal = hit.normal;
+                if (_currentState == PlayerState.WallClimbing)
+                {
+                    if (Physics.Raycast(_groundCheck.position, -_currentSurfaceNormal, out hit, 1f, _climbableLayers))
+                        _currentSurfaceNormal = hit.normal;
+                    else
+                    {
+                        _currentState = PlayerState.Falling;
+                        _currentSurfaceNormal = Vector3.up;
+                    }
+                }
                 else
                 {
-                    _currentState = PlayerState.Falling;
-                    _currentSurfaceNormal = Vector3.up;
+                    if (Physics.Raycast(_groundCheck.position, Vector3.down, out hit, _groundCheckDistance, _groundLayers))
+                        _currentSurfaceNormal = hit.normal;
+                    else
+                        _currentSurfaceNormal = Vector3.up;
                 }
-            }
-            else
-            {
-                if (Physics.Raycast(_groundCheck.position, Vector3.down, out hit, _groundCheckDistance, _groundLayers))
-                    _currentSurfaceNormal = hit.normal;
-                else
-                    _currentSurfaceNormal = Vector3.up;
             }
         }
     }
@@ -223,15 +235,16 @@ public class RoachController : NetworkBehaviour
         {
             case PlayerState.Grounded:
                 if (!grounded) _currentState = PlayerState.Falling;
-                else if (wallDetected) _currentState = PlayerState.WallClimbing;
+                else if (wallDetected && _carriedItem == null) _currentState = PlayerState.WallClimbing;
                 break;
+            case PlayerState.Carrying: if (!grounded) _currentState = PlayerState.Falling; break;
             case PlayerState.Jumping:
                 if (_rb.linearVelocity.y < 0) _currentState = PlayerState.Falling;
                 break;
             case PlayerState.Falling:
                 if (grounded) _currentState = PlayerState.Grounded;
                 else if (_jumpHeld) _currentState = PlayerState.Gliding;
-                else if (wallDetected) _currentState = PlayerState.WallClimbing;
+                else if (wallDetected && _carriedItem == null) _currentState = PlayerState.WallClimbing;
                 break;
             case PlayerState.Gliding:
                 if (grounded) _currentState = PlayerState.Grounded;
@@ -242,8 +255,7 @@ public class RoachController : NetworkBehaviour
 
     private bool IsGroundedRaycast()
     {
-        RaycastHit hit;
-        return Physics.Raycast(_groundCheck.position, Vector3.down, out hit, _groundCheckDistance, _groundLayers);
+        return Physics.Raycast(_groundCheck.position, Vector3.down, _groundCheckDistance, _groundLayers);
     }
 
     private bool IsWallDetected()
@@ -271,7 +283,6 @@ public class RoachController : NetworkBehaviour
 
         transform.rotation = Quaternion.Slerp(transform.rotation, alignToSurface, _alignSpeed * Time.fixedDeltaTime);
     }
-
 
     private void HandleCameraPivot()
     {
@@ -302,13 +313,176 @@ public class RoachController : NetworkBehaviour
         }
     }
 
+    public void OnPickUp(InputAction.CallbackContext ctx)
+    {
+        if (!ctx.started) return;
+
+        if (_carriedItem != null)
+        {
+            Debug.Log("Already carrying something, cannot pick up another item.");
+            return;
+        }
+
+        if (_pickupOrigin == null)
+            _pickupOrigin = transform;
+
+        Ray ray = new Ray(_pickupOrigin.position, _pickupOrigin.forward);
+        Debug.DrawRay(ray.origin, ray.direction * _pickupRange, Color.green, 1f);
+
+        if (Physics.Raycast(ray, out RaycastHit hit, _pickupRange, _itemLayer))
+        {
+            int hitLayerMask = 1 << hit.collider.gameObject.layer;
+
+            if ((_itemLayer.value & hitLayerMask) != 0)
+            {
+                Debug.Log("Picked up item on layer: " + LayerMask.LayerToName(hit.collider.gameObject.layer));
+                PickUpItem(hit.collider.gameObject);
+            }
+            else
+            {
+                Debug.Log("Hit object not on valid pickup layer: " + hit.collider.name);
+            }
+        }
+        else
+        {
+            Debug.Log("No item hit by raycast.");
+        }
+    }
+
+    public void OnDrop(InputAction.CallbackContext ctx)
+    {
+        if (!ctx.started) return;
+
+        if (_carriedItem == null)
+        {
+            Debug.Log("Nothing to drop.");
+            return;
+        }
+
+        Debug.Log("Dropped " + _carriedItem.name);
+        DropItem();
+
+    }
+
+    public void PickUpItem(GameObject item)
+    {
+        if (item == null)
+            return;
+
+        _isCarryingObject = true;
+        _carriedItem = item;
+
+        if (item.TryGetComponent(out ItemPickUp itemPickUp)) { itemPickUp.Interact(gameObject); }
+
+        // Récupérer le Renderer pour connaître la taille de l'objet
+        Renderer itemRenderer = _carriedItem.GetComponent<Renderer>();
+        Vector3 offset = Vector3.zero;
+
+        if (itemRenderer != null)
+        {
+            _currentState = PlayerState.Carrying;
+            // Placer l'objet légèrement au-dessus et légèrement devant du transport point
+            float yOffset = itemRenderer.bounds.extents.y + 0.5f; // au-dessus du personnage
+            float zOffset = 0.2f; // léger décalage avant
+            offset = new Vector3(0, yOffset, zOffset);
+        }
+
+        // Attacher l'objet au transport point
+        _carriedItem.transform.SetParent(_transportPoint);
+
+        // Positionner l'objet avec l'offset
+        _carriedItem.transform.localPosition = offset;
+
+        // Réinitialiser rotation
+        _carriedItem.transform.localRotation = Quaternion.identity;
+
+        // Désactiver physique si l'objet a un Rigidbody pour éviter qu'il tombe
+        Rigidbody rb = _carriedItem.GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.isKinematic = true;
+            rb.detectCollisions = false;
+        }
+    }
+
+
+
+    private void DropItem()
+    {
+        if (_carriedItem == null) return;
+
+        _isCarryingObject = false;
+        InventoryManager inventory = GetComponent<InventoryManager>();
+        if (inventory != null)
+        {
+            inventory.RemoveItem(_carriedItem.GetComponent<ItemPickUp>().itemData, 1);
+        }
+
+        // Détache l'objet
+        _carriedItem.transform.SetParent(null);
+
+        if (_carriedItem.TryGetComponent(out Rigidbody rb))
+        {
+            rb.isKinematic = false;
+            rb.detectCollisions = true;
+
+            // Réinitialise les vitesses
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+
+            // Désactive temporairement les collisions avec le joueur
+            Collider playerCollider = GetComponent<Collider>();
+            Collider itemCollider = _carriedItem.GetComponent<Collider>();
+            if (playerCollider != null && itemCollider != null)
+            {
+                Physics.IgnoreCollision(playerCollider, itemCollider, true);
+            }
+
+            // Force de lancer plus puissante et réaliste en ajoutant la vitesse du joueur
+            Rigidbody playerRb = GetComponent<Rigidbody>();
+            Vector3 playerVelocity = playerRb != null ? playerRb.linearVelocity : Vector3.zero;
+
+            Vector3 throwDir = (transform.forward + Vector3.up * Random.Range(1f, 2f)).normalized;
+            float throwForce = Random.Range(6f, 10f);
+
+            rb.linearVelocity = playerVelocity; // ajoute la vitesse du joueur
+            rb.AddForce(throwDir * throwForce, ForceMode.Impulse);
+
+            // Ajout d'un torque aléatoire pour rotation
+            rb.AddTorque(Random.insideUnitSphere * Random.Range(2f, 5f), ForceMode.Impulse);
+
+            // Réactive les collisions avec le joueur après un court délai
+            if (playerCollider != null && itemCollider != null)
+            {
+                StartCoroutine(ReenableCollision(playerCollider, itemCollider, 0.5f));
+            }
+        }
+
+        Debug.Log("Dropped " + _carriedItem.name);
+        _carriedItem = null;
+        _currentState = PlayerState.Grounded;
+    }
+
+
+
+    // Coroutine pour réactiver la collision après un délai
+    private IEnumerator ReenableCollision(Collider a, Collider b, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        Physics.IgnoreCollision(a, b, false);
+    }
+
+
     private void UpdateAnimations()
     {
         if (_networkAnimator == null) return;
 
+        bool carryingItem = _carriedItem != null;
+        _networkAnimator.SetBool("Item", carryingItem);
+
         if (_currentState == PlayerState.WallClimbing)
         {
-            bool isRunningOnWall = _moveInput.sqrMagnitude > 0.01f;
+            bool isRunningOnWall = _moveInput.sqrMagnitude > 0.01f && !carryingItem;
             _networkAnimator.SetBool("Run", isRunningOnWall);
             _networkAnimator.SetBool("Fly", false);
         }
@@ -318,12 +492,14 @@ public class RoachController : NetworkBehaviour
                             _currentState == PlayerState.Falling ||
                             _currentState == PlayerState.Gliding;
 
-            bool isRunning = _currentState == PlayerState.Grounded && _moveInput.sqrMagnitude > 0.01f;
+            bool isRunning = _currentState == PlayerState.Grounded && _moveInput.sqrMagnitude > 0.01f && !carryingItem;
 
             _networkAnimator.SetBool("Fly", isFlying);
             _networkAnimator.SetBool("Run", isRunning);
         }
     }
+
+
 
     private void OnDrawGizmosSelected()
     {
@@ -337,5 +513,9 @@ public class RoachController : NetworkBehaviour
         Gizmos.DrawLine(transform.position, transform.position + transform.forward * _wallCheckDistance);
         Gizmos.color = Color.red;
         Gizmos.DrawLine(transform.position, transform.position - transform.forward * _wallCheckDistance);
+
+        Gizmos.color = Color.green;
+        if (_pickupOrigin)
+            Gizmos.DrawLine(_pickupOrigin.position, _pickupOrigin.position + _pickupOrigin.forward * _pickupRange);
     }
 }

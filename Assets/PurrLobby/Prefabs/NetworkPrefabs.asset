@@ -17,9 +17,9 @@ MonoBehaviour:
   poolByDefault: 0
   folder: {fileID: 102900000, guid: 3dda249c276d09a4bb59c346665cf0e3, type: 3}
   prefabs:
-  - prefab: {fileID: 2407460229403786492, guid: d1e4a0b243f58b749a3f3b277fa615c7, type: 3}
+  - prefab: {fileID: 7145335650995372340, guid: 0e6bf455cb92bb942a38f22166741389, type: 3}
     pooled: 0
     warmupCount: 5
-  - prefab: {fileID: 7145335650995372340, guid: 0e6bf455cb92bb942a38f22166741389, type: 3}
+  - prefab: {fileID: 2407460229403786492, guid: d1e4a0b243f58b749a3f3b277fa615c7, type: 3}
     pooled: 0
     warmupCount: 5
