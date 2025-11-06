@@ -9,10 +9,12 @@ public class RoachCamera : MonoBehaviour
     public float DefaultHeight = 2f;
     public float WallClimbDistance = 10f;
     public float WallClimbHeight = 0f;
-    public float CarryingDistance = 4f;
     public float CarryingHeight = 2.5f;
 
-public float MouseSensitivity = 2f;
+    public float MouseSensitivity = 2f;
+    public float ZoomSpeed = 2f;
+    public float MinDistance = 2f;
+    public float MaxDistance = 10f;
     public float RotationSmoothTime = 0.1f;
     public float MinPitch = -30f;
     public float MaxPitch = 60f;
@@ -29,6 +31,7 @@ public float MouseSensitivity = 2f;
 
     private float _currentDistance;
     private float _currentHeight;
+    private float _targetDistance;
 
     private void Start()
     {
@@ -40,6 +43,7 @@ public float MouseSensitivity = 2f;
         _pitch = angles.x;
 
         _currentDistance = DefaultDistance;
+        _targetDistance = DefaultDistance;
         _currentHeight = DefaultHeight;
     }
 
@@ -51,63 +55,42 @@ public float MouseSensitivity = 2f;
         _pitch = Mathf.Clamp(_pitch, MinPitch, MaxPitch);
     }
 
+    public void OnZoom(InputAction.CallbackContext ctx)
+    {
+        float scroll = ctx.ReadValue<Vector2>().y;
+        _targetDistance -= scroll * ZoomSpeed;
+        _targetDistance = Mathf.Clamp(_targetDistance, MinDistance, MaxDistance);
+    }
+
     private void LateUpdate()
     {
         if (!Target) return;
 
-        float targetDistance = DefaultDistance;
         float targetHeight = DefaultHeight;
+        Vector3 targetPosition = Target.position;
 
-        if (PlayerController != null)
+        if (PlayerController != null && PlayerController._currentState == RoachController.PlayerState.Carrying)
         {
-            switch (PlayerController._currentState)
-            {
-                case RoachController.PlayerState.WallClimbing:
-                    targetDistance = WallClimbDistance;
-                    targetHeight = WallClimbHeight;
-                    break;
-
-                case RoachController.PlayerState.Carrying:
-                    targetDistance = CarryingDistance;
-                    targetHeight = CarryingHeight;
-
-                    // Ajustement plus subtil selon la taille de l'objet
-                    Collider carriedCollider = PlayerController.GetCarriedCollider();
-                    if (carriedCollider != null)
-                    {
-                        float objectHeight = carriedCollider.bounds.size.y;
-                        float objectSizeFactor = Mathf.Clamp(objectHeight, 0.2f, 2f);
-
-                        // Ajuste légèrement la hauteur et la distance
-                        targetHeight += objectSizeFactor;
-                        targetDistance += objectSizeFactor;
-                    }
-                    break;
-
-                default:
-                    targetDistance = DefaultDistance;
-                    targetHeight = DefaultHeight;
-                    break;
-            }
+            targetHeight = CarryingHeight;
         }
 
-        // Transition fluide
-        _currentDistance = Mathf.Lerp(_currentDistance, targetDistance, Time.deltaTime * SmoothTransitionSpeed);
+        // Transition fluide pour la distance et la hauteur
+        _currentDistance = Mathf.Lerp(_currentDistance, _targetDistance, Time.deltaTime * SmoothTransitionSpeed);
         _currentHeight = Mathf.Lerp(_currentHeight, targetHeight, Time.deltaTime * SmoothTransitionSpeed);
 
-        // Rotation de la caméra
+        // Rotation
         Vector3 targetRotation = new Vector3(_pitch, _yaw);
         _currentRotation = Vector3.SmoothDamp(_currentRotation, targetRotation, ref _rotationSmoothVelocity, RotationSmoothTime);
         Quaternion rot = Quaternion.Euler(_currentRotation.x, _currentRotation.y, 0f);
 
         // Position avec collision
-        Vector3 desiredPosition = Target.position - rot * Vector3.forward * _currentDistance + Vector3.up * _currentHeight;
-        if (Physics.Linecast(Target.position + Vector3.up * _currentHeight, desiredPosition, out RaycastHit hit, CollisionLayers))
+        Vector3 desiredPosition = targetPosition - rot * Vector3.forward * _currentDistance + Vector3.up * _currentHeight;
+        if (Physics.Linecast(targetPosition + Vector3.up * _currentHeight, desiredPosition, out RaycastHit hit, CollisionLayers))
         {
-            desiredPosition = hit.point + (Target.position - hit.point).normalized * 0.3f;
+            desiredPosition = hit.point + (targetPosition - hit.point).normalized * 0.3f;
         }
 
         transform.position = desiredPosition;
-        transform.LookAt(Target.position + Vector3.up * _currentHeight);
+        transform.LookAt(targetPosition + Vector3.up * _currentHeight);
     }
 }

@@ -155,8 +155,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PickupItem
   itemData: {fileID: 11400000, guid: 2f24ce30e39a8404898f1743d3cdf1ce, type: 2}
   amount: 1
-  weight: 5
+  weight: 3
   price: 30
+  owner: {fileID: 0}
 --- !u!114 &2838461665703422122
 MonoBehaviour:
   m_ObjectHideFlags: 0

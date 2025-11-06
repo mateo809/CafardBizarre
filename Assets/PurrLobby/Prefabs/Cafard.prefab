@@ -50,9 +50,11 @@ MonoBehaviour:
   DefaultHeight: 2
   WallClimbDistance: 10
   WallClimbHeight: 0
-  CarryingDistance: 20
   CarryingHeight: 15
   MouseSensitivity: 0.05
+  ZoomSpeed: 2
+  MinDistance: 5
+  MaxDistance: 50
   RotationSmoothTime: 0.1
   MinPitch: -60
   MaxPitch: 60
@@ -496,6 +498,22 @@ MonoBehaviour:
         m_CallState: 2
     m_ActionId: da9c9ef2-9de9-4515-9099-4605abcc6a63
     m_ActionName: 'Player/Drop[/Keyboard/g]'
+  - m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 3883978147946232144}
+        m_TargetAssemblyTypeName: RoachCamera, Assembly-CSharp
+        m_MethodName: OnZoom
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+    m_ActionId: 9c177e23-8415-413f-bac4-ee702ec46b0e
+    m_ActionName: 'Player/Zoom[/Mouse/middleButton]'
   m_NeverAutoSwitchControlSchemes: 1
   m_DefaultControlScheme: Keyboard&Mouse
   m_DefaultActionMap: Player
@@ -525,7 +543,7 @@ MonoBehaviour:
   _walkSpeed: 20
   _airControlMultiplier: 0.6
   _acceleration: 40
-  _rotationSpeed: 5
+  _rotationSpeed: 0.5
   _rotationInputSpeed: 180
   _jumpForce: 15
   _gravityStrength: 25
@@ -545,13 +563,15 @@ MonoBehaviour:
     m_Bits: 256
   _cameraPivot: {fileID: 4031161244650324719}
   _networkAnimator: {fileID: 2779226584704775151}
-  _maxCarryWeightSlowdown: 1
+  _maxCarryWeightSlowdown: 0.5
   _pickupOrigin: {fileID: 3367516834162662718}
   _transportPoint: {fileID: 3501638446019226370}
   _pickupRange: 5
   _itemLayer:
     serializedVersion: 2
     m_Bits: 512
+  pickupFeedbackPrefab: {fileID: 4282804885652951674, guid: 8ce9a902f5559f84fab2d23af246838a, type: 3}
+  carryingFeedbackPrefab: {fileID: 3834762427110480492, guid: 4af4bba493838c945abc13629d20a5bd, type: 3}
   _currentState: 0
   carriedObject: {fileID: 0}
 --- !u!65 &6797102666521832112

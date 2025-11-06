@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 1244830782853617758}
   - component: {fileID: -772586505366452810}
   m_Layer: 9
-  m_Name: PoissonGlobe
+  m_Name: POISSONGLOBE
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -70,8 +70,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PickupItem
   itemData: {fileID: 11400000, guid: 144ca3068fa658c4aadd48456811f096, type: 2}
   amount: 1
-  weight: 6
+  weight: 4
   price: 50
+  owner: {fileID: 0}
 --- !u!114 &-772586505366452810
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -232,6 +233,7 @@ MonoBehaviour:
   amount: 1
   weight: 1
   price: 10
+  owner: {fileID: 0}
 --- !u!114 &6131979973898423739
 MonoBehaviour:
   m_ObjectHideFlags: 0

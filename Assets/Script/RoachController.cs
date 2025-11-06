@@ -1,6 +1,5 @@
 using PurrNet;
 using System.Collections;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -54,6 +53,17 @@ public class RoachController : NetworkBehaviour
     [SerializeField] private LayerMask _itemLayer = ~0;
     private GameObject _carriedItem;
     private bool _isCarryingObject = false;
+
+    // --- UI Feedback ajout ---
+    [Header("UI Feedback")]
+    [SerializeField] private GameObject pickupFeedbackPrefab;   // Feedback quand proche d’un objet
+    [SerializeField] private GameObject carryingFeedbackPrefab; // Feedback quand on porte un objet
+
+    private GameObject pickupFeedbackInstance;
+    private GameObject carryingFeedbackInstance;
+    private Canvas mainCanvas;
+    private bool isInPickupRange = false;
+    // --------------------------
 
     private Rigidbody _rb;
     private Vector2 _moveInput;
@@ -112,6 +122,26 @@ public class RoachController : NetworkBehaviour
     private void Start()
     {
         _baseWalkSpeed = _walkSpeed;
+
+        mainCanvas = FindObjectOfType<Canvas>();
+        if (mainCanvas == null)
+        {
+            Debug.LogError("Aucun Canvas trouvé dans la scène !");
+        }
+        else
+        {
+            if (pickupFeedbackPrefab != null)
+            {
+                pickupFeedbackInstance = Instantiate(pickupFeedbackPrefab, mainCanvas.transform);
+                pickupFeedbackInstance.SetActive(false);
+            }
+            if (carryingFeedbackPrefab != null)
+            {
+                carryingFeedbackInstance = Instantiate(carryingFeedbackPrefab, mainCanvas.transform);
+                carryingFeedbackInstance.SetActive(false);
+            }
+        }
+        // -------------------------------------
     }
 
     private void FixedUpdate()
@@ -127,6 +157,36 @@ public class RoachController : NetworkBehaviour
         ApplyGravityAndJump();
 
         UpdateAnimations();
+
+        CheckPickupRangeFeedback();
+        UpdateCarryingFeedback();
+
+    }
+
+    private void CheckPickupRangeFeedback()
+    {
+        if (_pickupOrigin == null) _pickupOrigin = transform;
+
+        bool wasInRange = isInPickupRange;
+        isInPickupRange = Physics.Raycast(_pickupOrigin.position, _pickupOrigin.forward, _pickupRange, _itemLayer);
+
+        if (pickupFeedbackInstance != null)
+        {
+            if (isInPickupRange && !wasInRange)
+                pickupFeedbackInstance.SetActive(true);
+            else if (!isInPickupRange && wasInRange)
+                pickupFeedbackInstance.SetActive(false);
+        }
+    }
+
+    private void UpdateCarryingFeedback()
+    {
+        if (carryingFeedbackInstance == null) return;
+
+        if (_carriedItem != null && !carryingFeedbackInstance.activeSelf)
+            carryingFeedbackInstance.SetActive(true);
+        else if (_carriedItem == null && carryingFeedbackInstance.activeSelf)
+            carryingFeedbackInstance.SetActive(false);
     }
 
     private void HandleManualRotation()
@@ -147,13 +207,15 @@ public class RoachController : NetworkBehaviour
 
     private void ApplyMovement(Vector3 desiredVelocity)
     {
-        Vector3 vel = _rb.linearVelocity;
+        Vector3 currentVel = _rb.linearVelocity;
+        Vector3 horizontalVel = Vector3.ProjectOnPlane(currentVel, _currentSurfaceNormal);
 
-        Vector3 localVel = Vector3.ProjectOnPlane(vel, _currentSurfaceNormal);
-        Vector3 targetVel = Vector3.MoveTowards(localVel, desiredVelocity, _acceleration * Time.fixedDeltaTime);
+        float lerpFactor = (_currentState == PlayerState.Grounded) ? 0.15f : 0.1f;
+        Vector3 smoothedVel = Vector3.Lerp(horizontalVel, desiredVelocity, lerpFactor * _acceleration * Time.fixedDeltaTime);
 
-        _rb.linearVelocity = targetVel + _currentSurfaceNormal * Vector3.Dot(vel, _currentSurfaceNormal);
+        _rb.linearVelocity = smoothedVel + _currentSurfaceNormal * Vector3.Dot(currentVel, _currentSurfaceNormal);
     }
+
 
     private void ApplyGravityAndJump()
     {
@@ -178,7 +240,6 @@ public class RoachController : NetworkBehaviour
             _jumpPressed = false;
             _nextJumpTime = Time.time + _jumpCooldown;
         }
-
 
         if (_currentState == PlayerState.Gliding)
         {
