@@ -31,7 +31,7 @@ Transform:
   m_GameObject: {fileID: 4150936898064136088}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.7071067, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: -0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0.2852523, y: 0.37319586, z: 0.37319586}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -155,6 +155,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PickupItem
   itemData: {fileID: 11400000, guid: 2f24ce30e39a8404898f1743d3cdf1ce, type: 2}
   amount: 1
+  weight: 5
+  price: 30
 --- !u!114 &2838461665703422122
 MonoBehaviour:
   m_ObjectHideFlags: 0

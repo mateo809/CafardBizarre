@@ -42,6 +42,11 @@ public class RoachController : NetworkBehaviour
     [Header("Network Animation")]
     [SerializeField] private NetworkAnimator _networkAnimator;
 
+    [Header("Carrying Settings")]
+    [SerializeField] private float _maxCarryWeightSlowdown = 0.5f;
+    private float _currentWeight = 0f;
+    private float _baseWalkSpeed;
+
     [Header("Item Pickup / Drop")]
     [SerializeField] private Transform _pickupOrigin;
     [SerializeField] private Transform _transportPoint;
@@ -58,6 +63,8 @@ public class RoachController : NetworkBehaviour
 
     public PlayerState _currentState = PlayerState.Grounded;
     private Vector3 _currentSurfaceNormal = Vector3.up;
+
+    public GameObject carriedObject;
 
     protected override void OnSpawned()
     {
@@ -100,6 +107,11 @@ public class RoachController : NetworkBehaviour
             g.transform.localPosition = Vector3.zero;
             _groundCheck = g.transform;
         }
+    }
+
+    private void Start()
+    {
+        _baseWalkSpeed = _walkSpeed;
     }
 
     private void FixedUpdate()
@@ -368,35 +380,36 @@ public class RoachController : NetworkBehaviour
     {
         if (item == null)
             return;
-
+        carriedObject = item;
         _isCarryingObject = true;
         _carriedItem = item;
 
-        if (item.TryGetComponent(out ItemPickUp itemPickUp)) { itemPickUp.Interact(gameObject); }
+        if (item.TryGetComponent(out ItemPickUp itemPickUp))
+        {
+            itemPickUp.Interact(gameObject);
 
-        // Récupérer le Renderer pour connaître la taille de l'objet
+        }
+        _currentWeight = itemPickUp.weight;
+        ApplyCarrySpeedModifier();
+
         Renderer itemRenderer = _carriedItem.GetComponent<Renderer>();
         Vector3 offset = Vector3.zero;
 
         if (itemRenderer != null)
         {
             _currentState = PlayerState.Carrying;
-            // Placer l'objet légèrement au-dessus et légèrement devant du transport point
-            float yOffset = itemRenderer.bounds.extents.y + 0.5f; // au-dessus du personnage
-            float zOffset = 0.2f; // léger décalage avant
+
+            float yOffset = itemRenderer.bounds.extents.y + 0.5f;
+            float zOffset = 0.2f;
             offset = new Vector3(0, yOffset, zOffset);
         }
 
-        // Attacher l'objet au transport point
         _carriedItem.transform.SetParent(_transportPoint);
 
-        // Positionner l'objet avec l'offset
         _carriedItem.transform.localPosition = offset;
 
-        // Réinitialiser rotation
         _carriedItem.transform.localRotation = Quaternion.identity;
 
-        // Désactiver physique si l'objet a un Rigidbody pour éviter qu'il tombe
         Rigidbody rb = _carriedItem.GetComponent<Rigidbody>();
         if (rb != null)
         {
@@ -405,20 +418,20 @@ public class RoachController : NetworkBehaviour
         }
     }
 
-
-
-    private void DropItem()
+    public void DropItem()
     {
         if (_carriedItem == null) return;
-
         _isCarryingObject = false;
         InventoryManager inventory = GetComponent<InventoryManager>();
         if (inventory != null)
         {
             inventory.RemoveItem(_carriedItem.GetComponent<ItemPickUp>().itemData, 1);
+            _carriedItem.GetComponent<ItemPickUp>().owner = null;
         }
 
-        // Détache l'objet
+        _currentWeight = 0f;
+        ApplyCarrySpeedModifier();
+
         _carriedItem.transform.SetParent(null);
 
         if (_carriedItem.TryGetComponent(out Rigidbody rb))
@@ -426,11 +439,9 @@ public class RoachController : NetworkBehaviour
             rb.isKinematic = false;
             rb.detectCollisions = true;
 
-            // Réinitialise les vitesses
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
 
-            // Désactive temporairement les collisions avec le joueur
             Collider playerCollider = GetComponent<Collider>();
             Collider itemCollider = _carriedItem.GetComponent<Collider>();
             if (playerCollider != null && itemCollider != null)
@@ -438,20 +449,18 @@ public class RoachController : NetworkBehaviour
                 Physics.IgnoreCollision(playerCollider, itemCollider, true);
             }
 
-            // Force de lancer plus puissante et réaliste en ajoutant la vitesse du joueur
             Rigidbody playerRb = GetComponent<Rigidbody>();
             Vector3 playerVelocity = playerRb != null ? playerRb.linearVelocity : Vector3.zero;
 
             Vector3 throwDir = (transform.forward + Vector3.up * Random.Range(1f, 2f)).normalized;
             float throwForce = Random.Range(6f, 10f);
 
-            rb.linearVelocity = playerVelocity; // ajoute la vitesse du joueur
+            rb.linearVelocity = playerVelocity;
             rb.AddForce(throwDir * throwForce, ForceMode.Impulse);
 
-            // Ajout d'un torque aléatoire pour rotation
+
             rb.AddTorque(Random.insideUnitSphere * Random.Range(2f, 5f), ForceMode.Impulse);
 
-            // Réactive les collisions avec le joueur après un court délai
             if (playerCollider != null && itemCollider != null)
             {
                 StartCoroutine(ReenableCollision(playerCollider, itemCollider, 0.5f));
@@ -463,9 +472,6 @@ public class RoachController : NetworkBehaviour
         _currentState = PlayerState.Grounded;
     }
 
-
-
-    // Coroutine pour réactiver la collision après un délai
     private IEnumerator ReenableCollision(Collider a, Collider b, float delay)
     {
         yield return new WaitForSeconds(delay);
@@ -518,4 +524,20 @@ public class RoachController : NetworkBehaviour
         if (_pickupOrigin)
             Gizmos.DrawLine(_pickupOrigin.position, _pickupOrigin.position + _pickupOrigin.forward * _pickupRange);
     }
+
+    public Collider GetCarriedCollider()
+    {
+        if (carriedObject != null)
+            return carriedObject.GetComponent<Collider>();
+        return null;
+    }
+
+    private void ApplyCarrySpeedModifier()
+    {
+        float weightFactor = Mathf.Clamp01(_currentWeight / 10f);
+        float slowdown = 1f - weightFactor * _maxCarryWeightSlowdown;
+
+        _walkSpeed = _baseWalkSpeed * slowdown;
+    }
+
 }

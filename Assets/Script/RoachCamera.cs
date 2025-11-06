@@ -7,12 +7,12 @@ public class RoachCamera : MonoBehaviour
     public Transform Target;
     public float DefaultDistance = 5f;
     public float DefaultHeight = 2f;
-    public float WallClimbDistance = 6f;
-    public float WallClimbHeight = 3f;
+    public float WallClimbDistance = 10f;
+    public float WallClimbHeight = 0f;
     public float CarryingDistance = 4f;
     public float CarryingHeight = 2.5f;
 
-    public float MouseSensitivity = 2f;
+public float MouseSensitivity = 2f;
     public float RotationSmoothTime = 0.1f;
     public float MinPitch = -30f;
     public float MaxPitch = 60f;
@@ -66,10 +66,24 @@ public class RoachCamera : MonoBehaviour
                     targetDistance = WallClimbDistance;
                     targetHeight = WallClimbHeight;
                     break;
+
                 case RoachController.PlayerState.Carrying:
                     targetDistance = CarryingDistance;
                     targetHeight = CarryingHeight;
+
+                    // Ajustement plus subtil selon la taille de l'objet
+                    Collider carriedCollider = PlayerController.GetCarriedCollider();
+                    if (carriedCollider != null)
+                    {
+                        float objectHeight = carriedCollider.bounds.size.y;
+                        float objectSizeFactor = Mathf.Clamp(objectHeight, 0.2f, 2f);
+
+                        // Ajuste légèrement la hauteur et la distance
+                        targetHeight += objectSizeFactor;
+                        targetDistance += objectSizeFactor;
+                    }
                     break;
+
                 default:
                     targetDistance = DefaultDistance;
                     targetHeight = DefaultHeight;

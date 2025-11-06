@@ -7,11 +7,13 @@ public class InventorySlot
 {
     public Item item;
     public int quantity;
+    public int price;
 
-    public InventorySlot(Item item, int quantity)
+    public InventorySlot(Item item, int quantity, int price)
     {
         this.item = item;
         this.quantity = quantity;
+        this.price = price;
     }
 
     public void AddQuantity(int amount)
@@ -26,11 +28,12 @@ public class InventoryManager : MonoBehaviour
     public int maxSlots = 20;
 
     public InventorySetSlot inventoryUI;
-
-    // --- Ajout d'objet ---
-    public bool AddItem(Item itemToAdd, int amount = 1)
+    public bool AddItem(Item itemToAdd, int amount = 1, int price = 0)
     {
         if (itemToAdd == null) return false;
+
+
+        if (price == 0) price = itemToAdd.priceItem;
 
         if (itemToAdd.stackable)
         {
@@ -48,7 +51,7 @@ public class InventoryManager : MonoBehaviour
                 if (amount <= 0)
                 {
                     Debug.Log($"Added {itemToAdd.itemName} x{actualAdded} to existing stack.");
-                    inventoryUI.RefreshUI(inventorySlots); // Mise à jour UI
+                    inventoryUI.RefreshUI(inventorySlots);
                     return true;
                 }
             }
@@ -64,18 +67,18 @@ public class InventoryManager : MonoBehaviour
 
             int qtyToAdd = itemToAdd.stackable ? Mathf.Min(amount, itemToAdd.maxStack) : 1;
 
-            InventorySlot newSlot = new InventorySlot(itemToAdd, qtyToAdd);
+            InventorySlot newSlot = new InventorySlot(itemToAdd, qtyToAdd, price);
             inventorySlots.Add(newSlot);
 
             amount -= qtyToAdd;
-            Debug.Log($"Added new slot for {itemToAdd.itemName} x{qtyToAdd}.");
+            Debug.Log($"Added new slot for {itemToAdd.itemName} x{qtyToAdd} at price {price}.");
         }
 
-        inventoryUI.RefreshUI(inventorySlots); // Mise à jour UI
+        inventoryUI.RefreshUI(inventorySlots);
         return true;
     }
 
-    // --- Retrait d'objet ---
+
     public bool RemoveItem(Item itemToRemove, int amount = 1)
     {
         InventorySlot slot = inventorySlots.FirstOrDefault(s => s.item == itemToRemove);
@@ -98,7 +101,7 @@ public class InventoryManager : MonoBehaviour
             Debug.Log($"Removed last stack of {itemToRemove.itemName}.");
         }
 
-        inventoryUI.RefreshUI(inventorySlots); // Mise à jour UI
+        inventoryUI.RefreshUI(inventorySlots);
         return true;
     }
 
@@ -111,4 +114,10 @@ public class InventoryManager : MonoBehaviour
         }
         return totalWeight;
     }
+
+    public InventorySlot GetSlot(int index) 
+    { 
+        return inventorySlots[index];
+    }
+    //public List<(Item item, int quantity)> GetAllItems() { List<(Item, int)> allItems = new List<(Item, int)>(); foreach (var slot in inventorySlots) { allItems.Add((slot.item, slot.quantity)); } return allItems; }
 }
