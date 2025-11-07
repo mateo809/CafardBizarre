@@ -1,5 +1,6 @@
 using UnityEngine;
 using PurrNet;
+using System.Runtime.InteropServices;
 
 public class ShopZone : NetworkBehaviour
 {
@@ -7,11 +8,12 @@ public class ShopZone : NetworkBehaviour
 
     private RoachController roachController;
 
+    [SerializeField] GlobalEconomyManager _globalEconomyManager;
+
     private void OnTriggerEnter(Collider other)
     {
         if (other.gameObject.layer == LayerMask.NameToLayer("Item"))
         {
-            Destroy(other.gameObject);
             return; 
         }
 
@@ -31,7 +33,7 @@ public class ShopZone : NetworkBehaviour
         
         int itemPrice = playerInventory.GetSlot(0).price;
 
-        GlobalEconomyManager.Instance.totalMoney.value += itemPrice;
+       _globalEconomyManager.totalMoney.value += itemPrice;
 
         Debug.Log($"Sold 1 x {playerInventory.GetSlot(0).item.itemName} for {itemPrice} coins.");
 

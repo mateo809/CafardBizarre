@@ -5,9 +5,11 @@ public class GlobalMoneyUI : MonoBehaviour
 {
     [SerializeField] private TextMeshProUGUI _moneyText;
 
+    [SerializeField] private GlobalEconomyManager _economyManager;
+
     private void Update()
     {
-        UpdateDisplay(GlobalEconomyManager.Instance.GetTotalMoney());
+        UpdateDisplay(_economyManager.totalMoney);
     }
 
     private void UpdateDisplay(int newValue)
