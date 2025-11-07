@@ -54,7 +54,7 @@ MonoBehaviour:
   MouseSensitivity: 0.05
   ZoomSpeed: 2
   MinDistance: 5
-  MaxDistance: 50
+  MaxDistance: 25
   RotationSmoothTime: 0.1
   MinPitch: -60
   MaxPitch: 60
@@ -272,6 +272,7 @@ GameObject:
   - component: {fileID: 5823518533225857531}
   - component: {fileID: 7070765802204805186}
   - component: {fileID: 6317445930183475722}
+  - component: {fileID: 203073907670086446}
   m_Layer: 3
   m_Name: Cafard
   m_TagString: Untagged
@@ -787,6 +788,28 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::InventorySetSlot
   slotPrefab: {fileID: 279452752479699063, guid: 86c51fbfbf1ba774c83e2e5d4e904ff8, type: 3}
   emptySprite: {fileID: 10917, guid: 0000000000000000f000000000000000, type: 0}
+--- !u!114 &203073907670086446
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2407460229403786492}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0842d754ce938244b81d83b09cc0f1c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GlobalMoneyUI
+  _isSetup: 0
+  _prefabId: -2147483648
+  _componentIndex: -2147483648
+  _shouldBePooled: 0
+  _parent: {fileID: 0}
+  _invertedPathToNearestParent: 
+  _directChildren: []
+  _networkRules: {fileID: 0}
+  _visitiblityRules: {fileID: 0}
+  moneyTextPrefab: {fileID: 7805691443003237138, guid: a309b0d254daf72478efe428487c995f, type: 3}
 --- !u!1 &2472727129540226858
 GameObject:
   m_ObjectHideFlags: 0

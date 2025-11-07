@@ -69,21 +69,42 @@ public class RoachCamera : MonoBehaviour
         float targetHeight = DefaultHeight;
         Vector3 targetPosition = Target.position;
 
-        if (PlayerController != null && PlayerController._currentState == RoachController.PlayerState.Carrying)
+        if (PlayerController != null)
         {
-            targetHeight = CarryingHeight;
+
+            if (PlayerController._currentState == RoachController.PlayerState.WallClimbing)
+            {
+                _targetDistance = MaxDistance;           
+                targetHeight = WallClimbHeight;         
+            }
+            else if (PlayerController._currentState == RoachController.PlayerState.Carrying)
+            {
+                if (PlayerController.carriedObject != null)
+                {
+                    float objectSize = PlayerController.carriedObject.GetComponent<Renderer>()?.bounds.size.magnitude ?? 1f;
+                    _targetDistance = Mathf.Clamp(objectSize * 1.5f, MinDistance, MaxDistance);
+                }
+                else
+                {
+                    _targetDistance = DefaultDistance;
+                }
+
+                targetHeight = CarryingHeight;
+            }
+            else
+            {
+                _targetDistance = DefaultDistance;
+                targetHeight = DefaultHeight;
+            }
         }
 
-        // Transition fluide pour la distance et la hauteur
         _currentDistance = Mathf.Lerp(_currentDistance, _targetDistance, Time.deltaTime * SmoothTransitionSpeed);
         _currentHeight = Mathf.Lerp(_currentHeight, targetHeight, Time.deltaTime * SmoothTransitionSpeed);
 
-        // Rotation
         Vector3 targetRotation = new Vector3(_pitch, _yaw);
         _currentRotation = Vector3.SmoothDamp(_currentRotation, targetRotation, ref _rotationSmoothVelocity, RotationSmoothTime);
         Quaternion rot = Quaternion.Euler(_currentRotation.x, _currentRotation.y, 0f);
 
-        // Position avec collision
         Vector3 desiredPosition = targetPosition - rot * Vector3.forward * _currentDistance + Vector3.up * _currentHeight;
         if (Physics.Linecast(targetPosition + Vector3.up * _currentHeight, desiredPosition, out RaycastHit hit, CollisionLayers))
         {
@@ -93,4 +114,6 @@ public class RoachCamera : MonoBehaviour
         transform.position = desiredPosition;
         transform.LookAt(targetPosition + Vector3.up * _currentHeight);
     }
+
+
 }

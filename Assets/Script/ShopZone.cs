@@ -14,6 +14,7 @@ public class ShopZone : NetworkBehaviour
     {
         if (other.gameObject.layer == LayerMask.NameToLayer("Item"))
         {
+            Destroy(other.gameObject);
             return; 
         }
 
