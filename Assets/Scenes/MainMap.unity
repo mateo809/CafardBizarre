@@ -638,10 +638,10 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: b9a025f4070638e4383fec9424ef5e0d, type: 3}
---- !u!4 &193780687 stripped
+--- !u!4 &196806585 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2951024870928334490, guid: b9a025f4070638e4383fec9424ef5e0d, type: 3}
-  m_PrefabInstance: {fileID: 193780686}
+  m_PrefabInstance: {fileID: 196806584}
   m_PrefabAsset: {fileID: 0}
 --- !u!1 &328439048
 GameObject:
@@ -1776,6 +1776,8 @@ MonoBehaviour:
     type: 5
   - clip: {fileID: 8300000, guid: 85d865f2a67680949879ce647e7f728e, type: 3}
     type: 6
+  - clip: {fileID: 8300000, guid: d8d5fc5496fb3f44d9e17af21d30928c, type: 3}
+    type: 7
 --- !u!4 &541577236
 Transform:
   m_ObjectHideFlags: 0
@@ -4849,7 +4851,7 @@ MonoBehaviour:
   m_margin: {x: 0, y: 0, z: 0, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
-  m_hasFontAssetChanged: 1
+  m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
 --- !u!222 &1972012455
@@ -12746,7 +12748,6 @@ Transform:
   - {fileID: 1090860211}
   - {fileID: 2021927695}
   - {fileID: 1409689990}
-  - {fileID: 193780687}
   - {fileID: 2037913621}
   - {fileID: 975597802}
   - {fileID: 386688014}
@@ -12757,6 +12758,7 @@ Transform:
   - {fileID: 853684522}
   - {fileID: 1269935930}
   - {fileID: 167222627}
+  - {fileID: 196806585}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &4499821609984053222
@@ -23473,5 +23475,5 @@ SceneRoots:
   - {fileID: 6564202108076987136}
   - {fileID: 328439051}
   - {fileID: 4499821609984053221}
-  - {fileID: 1775700967}
   - {fileID: 541577236}
+  - {fileID: 526607993}

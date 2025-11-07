@@ -23,6 +23,7 @@ public class ShopZone : NetworkBehaviour
         {
             Debug.Log(playerInventory.GetSlot(0).item.priceItem);
             Debug.Log(playerInventory.GetSlot(0).price);
+            AudioController.Instance.PlaySound(AudioType.SellItem, AudioSourceType.Player);
             SellAllItems(playerInventory);
         }
     }

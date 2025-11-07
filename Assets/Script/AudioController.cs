@@ -10,6 +10,7 @@ public enum AudioType
     mobStep,
     Die,
     HeartBeat,
+    SellItem,
 
 }
 public enum AudioSourceType
