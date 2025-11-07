@@ -10,12 +10,25 @@ public class RoachController : NetworkBehaviour
 
     [Header("Movement")]
     [SerializeField] private float _walkSpeed = 5f;
+    [SerializeField] private float _sprintMultiplier = 1.5f;
     [SerializeField] private float _airControlMultiplier = 0.6f;
     [SerializeField] private float _acceleration = 20f;
+    [SerializeField] private float _deceleration = 15f;
 
     [Header("Rotation")]
-    [SerializeField] private float _rotationSpeed = 10f;
-    [SerializeField] private float _rotationInputSpeed = 180f;
+    [SerializeField] private float _rotationSpeed = 12f;
+    [SerializeField] private float _rotationSmoothTime = 0.12f;
+    [SerializeField] private bool _rotateTowardsMovement = true;
+    [SerializeField] private float _strafeRotationSpeed = 8f;
+
+    [Header("Camera")]
+    [SerializeField] private Transform _cameraPivot;
+    [SerializeField] private float _cameraDistance = 5f;
+    [SerializeField] private float _cameraHeight = 2f;
+    [SerializeField] private float _cameraFollowSpeed = 10f;
+    [SerializeField] private float _cameraRotationSpeed = 8f;
+    [SerializeField] private Vector2 _cameraSensitivity = new Vector2(2f, 2f);
+    [SerializeField] private Vector2 _cameraPitchLimits = new Vector2(-30f, 60f);
 
     [Header("Jump / Glide")]
     [SerializeField] private float _jumpForce = 6f;
@@ -23,20 +36,20 @@ public class RoachController : NetworkBehaviour
     [SerializeField] private float _glideGravity = 6f;
     [SerializeField] private float _glideFallRate = -1.5f;
     [SerializeField] private float _jumpCooldown = 0.35f;
+    [SerializeField] private float _coyoteTime = 0.15f;
+    [SerializeField] private float _jumpBufferTime = 0.2f;
 
     [Header("Wall Crawl")]
     [SerializeField] private float _wallCheckDistance = 1f;
     [SerializeField] private float _alignSpeed = 8f;
     [SerializeField] private float _maxWallAngle = 130f;
     [SerializeField] private LayerMask _climbableLayers = ~0;
+    [SerializeField] private float _wallRotationSpeed = 5f;
 
     [Header("Ground Check")]
     [SerializeField] private Transform _groundCheck;
     [SerializeField] private float _groundCheckDistance = 0.5f;
     [SerializeField] private LayerMask _groundLayers = ~0;
-
-    [Header("Camera")]
-    [SerializeField] private Transform _cameraPivot;
 
     [Header("Network Animation")]
     [SerializeField] private NetworkAnimator _networkAnimator;
@@ -54,26 +67,34 @@ public class RoachController : NetworkBehaviour
     private GameObject _carriedItem;
     private bool _isCarryingObject = false;
 
-    // --- UI Feedback ajout ---
     [Header("UI Feedback")]
-    [SerializeField] private GameObject pickupFeedbackPrefab;   // Feedback quand proche d�un objet
-    [SerializeField] private GameObject carryingFeedbackPrefab; // Feedback quand on porte un objet
+    [SerializeField] private GameObject pickupFeedbackPrefab;
+    [SerializeField] private GameObject carryingFeedbackPrefab;
 
     private GameObject pickupFeedbackInstance;
     private GameObject carryingFeedbackInstance;
     private Canvas mainCanvas;
     private bool isInPickupRange = false;
-    // --------------------------
 
+    // Core components
     private Rigidbody _rb;
     private Vector2 _moveInput;
+    private Vector2 _lookInput;
     private bool _jumpPressed;
     private bool _jumpHeld;
+    private bool _sprintHeld;
     private float _nextJumpTime;
+    private float _lastGroundedTime;
+    private float _jumpBufferTimer;
+
+    // Rotation smoothing
+    private float _currentRotationVelocity;
+    private float _targetRotation;
+    private float _cameraYaw;
+    private float _cameraPitch;
 
     public PlayerState _currentState = PlayerState.Grounded;
     private Vector3 _currentSurfaceNormal = Vector3.up;
-
     public GameObject carriedObject;
 
     protected override void OnSpawned()
@@ -92,16 +113,24 @@ public class RoachController : NetworkBehaviour
         var playerInput = GetComponent<PlayerInput>();
         if (playerInput) playerInput.enabled = true;
 
+        // Créer le pivot de caméra si absent
         if (!_cameraPivot)
         {
             GameObject camObj = new GameObject("CameraPivot");
-            camObj.transform.SetParent(transform);
-            camObj.transform.localPosition = Vector3.zero;
+            camObj.transform.SetParent(null); // Pas de parent pour éviter les rotations parasites
             _cameraPivot = camObj.transform;
         }
 
+        // Initialiser la rotation de caméra
+        _cameraYaw = transform.eulerAngles.y;
+        _cameraPitch = 0f;
+
         if (_networkAnimator)
             _networkAnimator.applyRootMotion = false;
+
+        // Verrouiller le curseur pour un TPS
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
 
     private void Awake()
@@ -126,7 +155,7 @@ public class RoachController : NetworkBehaviour
         mainCanvas = FindObjectOfType<Canvas>();
         if (mainCanvas == null)
         {
-            Debug.LogError("Aucun Canvas trouv� dans la sc�ne !");
+            Debug.LogError("Aucun Canvas trouvé dans la scène !");
         }
         else
         {
@@ -141,26 +170,41 @@ public class RoachController : NetworkBehaviour
                 carryingFeedbackInstance.SetActive(false);
             }
         }
-        // -------------------------------------
+    }
+
+    private void Update()
+    {
+        // Mise à jour des timers dans Update pour plus de précision
+        if (_jumpPressed)
+            _jumpBufferTimer = _jumpBufferTime;
+        else
+            _jumpBufferTimer -= Time.deltaTime;
+
+        if (IsGroundedRaycast())
+            _lastGroundedTime = Time.time;
     }
 
     private void FixedUpdate()
     {
         DetectWallOrFloor();
         UpdateState();
-        HandleOrientation();
-        HandleManualRotation();
-        HandleCameraPivot();
 
         Vector3 desiredVelocity = CalculateDesiredVelocity();
         ApplyMovement(desiredVelocity);
+
+        HandleRotation();
+        HandleOrientation();
         ApplyGravityAndJump();
 
         UpdateAnimations();
-
         CheckPickupRangeFeedback();
         UpdateCarryingFeedback();
+    }
 
+    private void LateUpdate()
+    {
+        // Mise à jour de la caméra après le mouvement
+        HandleCameraMovement();
     }
 
     private void CheckPickupRangeFeedback()
@@ -189,18 +233,45 @@ public class RoachController : NetworkBehaviour
             carryingFeedbackInstance.SetActive(false);
     }
 
-    private void HandleManualRotation()
-    {
-        float yRotation = _moveInput.x * _rotationInputSpeed * Time.fixedDeltaTime;
-        transform.Rotate(Vector3.up, yRotation, Space.Self);
-    }
-
     private Vector3 CalculateDesiredVelocity()
     {
-        Vector3 moveDir = (transform.forward * _moveInput.y) + (transform.right * _moveInput.x);
-        moveDir = moveDir.normalized;
+        if (_moveInput.sqrMagnitude < 0.01f)
+            return Vector3.zero;
 
-        float speed = _walkSpeed * ((_currentState == PlayerState.Grounded || _currentState == PlayerState.WallClimbing) ? 1f : _airControlMultiplier);
+        Vector3 moveDir;
+
+        // Sur un mur, utiliser l'axe Y pour monter/descendre et X pour les côtés
+        if (_currentState == PlayerState.WallClimbing)
+        {
+            // Y input = monter/descendre le long du mur
+            // X input = se déplacer latéralement sur le mur
+            Vector3 wallUp = -Vector3.Cross(_currentSurfaceNormal, transform.right).normalized;
+            Vector3 wallRight = -Vector3.Cross(wallUp, _currentSurfaceNormal).normalized;
+
+            moveDir = (wallUp * _moveInput.y + wallRight * _moveInput.x).normalized;
+        }
+        else
+        {
+            // Calculer la direction relative à la caméra (comportement normal)
+            Vector3 cameraForward = _cameraPivot.forward;
+            Vector3 cameraRight = _cameraPivot.right;
+
+            // Projeter sur le plan de la surface
+            cameraForward = Vector3.ProjectOnPlane(cameraForward, _currentSurfaceNormal).normalized;
+            cameraRight = Vector3.ProjectOnPlane(cameraRight, _currentSurfaceNormal).normalized;
+
+            // Direction de mouvement relative à la caméra
+            moveDir = (cameraForward * _moveInput.y + cameraRight * _moveInput.x).normalized;
+        }
+
+        // Vitesse avec sprint
+        float speed = _walkSpeed;
+        if (_sprintHeld && _currentState == PlayerState.Grounded && _carriedItem == null)
+            speed *= _sprintMultiplier;
+
+        // Réduction en l'air (mais pas sur le mur)
+        if (_currentState != PlayerState.Grounded && _currentState != PlayerState.WallClimbing)
+            speed *= _airControlMultiplier;
 
         return moveDir * speed;
     }
@@ -210,10 +281,49 @@ public class RoachController : NetworkBehaviour
         Vector3 currentVel = _rb.linearVelocity;
         Vector3 horizontalVel = Vector3.ProjectOnPlane(currentVel, _currentSurfaceNormal);
 
+        // Accélération/décélération dynamique
+        float accel = desiredVelocity.sqrMagnitude > 0.01f ? _acceleration : _deceleration;
+
         float lerpFactor = (_currentState == PlayerState.Grounded) ? 0.15f : 0.1f;
-        Vector3 smoothedVel = Vector3.Lerp(horizontalVel, desiredVelocity, lerpFactor * _acceleration * Time.fixedDeltaTime);
+        Vector3 smoothedVel = Vector3.Lerp(horizontalVel, desiredVelocity, lerpFactor * accel * Time.fixedDeltaTime);
 
         _rb.linearVelocity = smoothedVel + _currentSurfaceNormal * Vector3.Dot(currentVel, _currentSurfaceNormal);
+    }
+
+    private void HandleRotation()
+    {
+        if (_moveInput.sqrMagnitude < 0.01f) return;
+
+        Vector3 targetDirection;
+
+        if (_currentState == PlayerState.WallClimbing)
+        {
+            // Définir les axes sur le mur
+            Vector3 wallUp = -Vector3.Cross(_currentSurfaceNormal, transform.right).normalized;
+            Vector3 wallRight = -Vector3.Cross(wallUp, _currentSurfaceNormal).normalized;
+
+            targetDirection = (wallUp * _moveInput.y + wallRight * _moveInput.x).normalized;
+
+            if (targetDirection.sqrMagnitude > 0.01f)
+            {
+                Quaternion targetRotation = Quaternion.LookRotation(targetDirection, _currentSurfaceNormal);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, _wallRotationSpeed * Time.fixedDeltaTime);
+            }
+        }
+        else
+        {
+            Vector3 cameraForward = Vector3.ProjectOnPlane(_cameraPivot.forward, _currentSurfaceNormal).normalized;
+            Vector3 cameraRight = Vector3.ProjectOnPlane(_cameraPivot.right, _currentSurfaceNormal).normalized;
+
+            targetDirection = (cameraForward * _moveInput.y + cameraRight * _moveInput.x).normalized;
+
+            if (targetDirection.sqrMagnitude > 0.01f)
+            {
+                Quaternion targetRotation = Quaternion.LookRotation(targetDirection, _currentSurfaceNormal);
+                float rotSpeed = (_moveInput.x != 0 && Mathf.Abs(_moveInput.y) < 0.5f) ? _strafeRotationSpeed : _rotationSpeed;
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotSpeed * Time.fixedDeltaTime);
+            }
+        }
     }
 
 
@@ -223,24 +333,30 @@ public class RoachController : NetworkBehaviour
         float g = (_currentState == PlayerState.Gliding) ? _glideGravity : _gravityStrength;
         _rb.AddForce(gravityDir * g, ForceMode.Acceleration);
 
-        if (_jumpPressed && Time.time >= _nextJumpTime && _carriedItem == null)
+        // Coyote time et jump buffer
+        bool canJump = (Time.time - _lastGroundedTime) <= _coyoteTime || _currentState == PlayerState.Grounded;
+
+        if (_jumpBufferTimer > 0 && canJump && Time.time >= _nextJumpTime && _carriedItem == null)
         {
-            if (_currentState == PlayerState.Grounded)
+            if (_currentState == PlayerState.Grounded || (Time.time - _lastGroundedTime) <= _coyoteTime)
             {
                 _rb.linearVelocity = transform.up * _jumpForce;
                 _currentState = PlayerState.Jumping;
+                _jumpBufferTimer = 0f;
+                _nextJumpTime = Time.time + _jumpCooldown;
             }
-            else if (_currentState == PlayerState.WallClimbing)
-            {
-                _currentState = PlayerState.Falling;
-                Vector3 pushDir = (_currentSurfaceNormal + Vector3.up * 0.5f).normalized;
-                _rb.linearVelocity = pushDir * _jumpForce;
-            }
-
-            _jumpPressed = false;
+        }
+        else if (_jumpPressed && _currentState == PlayerState.WallClimbing && _carriedItem == null)
+        {
+            _currentState = PlayerState.Falling;
+            Vector3 pushDir = (_currentSurfaceNormal + Vector3.up * 0.5f).normalized;
+            _rb.linearVelocity = pushDir * _jumpForce;
             _nextJumpTime = Time.time + _jumpCooldown;
         }
 
+        _jumpPressed = false;
+
+        // Limiter la vitesse de chute en glide
         if (_currentState == PlayerState.Gliding)
         {
             Vector3 vel = _rb.linearVelocity;
@@ -251,6 +367,35 @@ public class RoachController : NetworkBehaviour
                 _rb.linearVelocity = vel;
             }
         }
+    }
+
+    private void HandleCameraMovement()
+    {
+        if (!_cameraPivot) return;
+
+        // Rotation de la caméra avec la souris
+        _cameraYaw += _lookInput.x * _cameraSensitivity.x;
+        _cameraPitch -= _lookInput.y * _cameraSensitivity.y;
+        _cameraPitch = Mathf.Clamp(_cameraPitch, _cameraPitchLimits.x, _cameraPitchLimits.y);
+
+        // Orientation de la caméra
+        Quaternion targetCameraRotation = Quaternion.Euler(_cameraPitch, _cameraYaw, 0f);
+        _cameraPivot.rotation = Quaternion.Slerp(
+            _cameraPivot.rotation,
+            targetCameraRotation,
+            _cameraRotationSpeed * Time.deltaTime
+        );
+
+        // Position de la caméra derrière le joueur
+        Vector3 targetPosition = transform.position
+            - _cameraPivot.forward * _cameraDistance
+            + _currentSurfaceNormal * _cameraHeight;
+
+        _cameraPivot.position = Vector3.Lerp(
+            _cameraPivot.position,
+            targetPosition,
+            _cameraFollowSpeed * Time.deltaTime
+        );
     }
 
     private void DetectWallOrFloor()
@@ -310,7 +455,9 @@ public class RoachController : NetworkBehaviour
                 if (!grounded) _currentState = PlayerState.Falling;
                 else if (wallDetected && _carriedItem == null) _currentState = PlayerState.WallClimbing;
                 break;
-            case PlayerState.Carrying: if (!grounded) _currentState = PlayerState.Falling; break;
+            case PlayerState.Carrying:
+                if (!grounded) _currentState = PlayerState.Falling;
+                break;
             case PlayerState.Jumping:
                 if (_rb.linearVelocity.y < 0) _currentState = PlayerState.Falling;
                 break;
@@ -357,20 +504,22 @@ public class RoachController : NetworkBehaviour
         transform.rotation = Quaternion.Slerp(transform.rotation, alignToSurface, _alignSpeed * Time.fixedDeltaTime);
     }
 
-    private void HandleCameraPivot()
-    {
-        if (!_cameraPivot) return;
-
-        Quaternion targetRot = Quaternion.FromToRotation(_cameraPivot.up, _currentSurfaceNormal) * _cameraPivot.rotation;
-        _cameraPivot.rotation = Quaternion.Slerp(_cameraPivot.rotation, targetRot, _rotationSpeed * Time.fixedDeltaTime);
-
-        Vector3 desiredPos = transform.position - _cameraPivot.forward * 5f + _currentSurfaceNormal * 2f;
-        _cameraPivot.position = Vector3.Lerp(_cameraPivot.position, desiredPos, Time.fixedDeltaTime * 5f);
-    }
-
     public void OnMove(InputAction.CallbackContext ctx)
     {
         _moveInput = ctx.ReadValue<Vector2>();
+    }
+
+    public void OnLook(InputAction.CallbackContext ctx)
+    {
+        _lookInput = ctx.ReadValue<Vector2>();
+    }
+
+    public void OnSprint(InputAction.CallbackContext ctx)
+    {
+        if (ctx.started)
+            _sprintHeld = true;
+        else if (ctx.canceled)
+            _sprintHeld = false;
     }
 
     public void OnJump(InputAction.CallbackContext ctx)
@@ -434,7 +583,6 @@ public class RoachController : NetworkBehaviour
 
         Debug.Log("Dropped " + _carriedItem.name);
         DropItem();
-
     }
 
     public void PickUpItem(GameObject item)
@@ -448,7 +596,6 @@ public class RoachController : NetworkBehaviour
         if (item.TryGetComponent(out ItemPickUp itemPickUp))
         {
             itemPickUp.Interact(gameObject);
-
         }
         _currentWeight = itemPickUp.weight;
         ApplyCarrySpeedModifier();
@@ -466,9 +613,7 @@ public class RoachController : NetworkBehaviour
         }
 
         _carriedItem.transform.SetParent(_transportPoint);
-
         _carriedItem.transform.localPosition = offset;
-
         _carriedItem.transform.localRotation = Quaternion.identity;
 
         Rigidbody rb = _carriedItem.GetComponent<Rigidbody>();
@@ -518,8 +663,6 @@ public class RoachController : NetworkBehaviour
 
             rb.linearVelocity = playerVelocity;
             rb.AddForce(throwDir * throwForce, ForceMode.Impulse);
-
-
             rb.AddTorque(Random.insideUnitSphere * Random.Range(2f, 5f), ForceMode.Impulse);
 
             if (playerCollider != null && itemCollider != null)
@@ -538,7 +681,6 @@ public class RoachController : NetworkBehaviour
         yield return new WaitForSeconds(delay);
         Physics.IgnoreCollision(a, b, false);
     }
-
 
     private void UpdateAnimations()
     {
@@ -565,8 +707,6 @@ public class RoachController : NetworkBehaviour
             _networkAnimator.SetBool("Run", isRunning);
         }
     }
-
-
 
     private void OnDrawGizmosSelected()
     {
@@ -600,5 +740,4 @@ public class RoachController : NetworkBehaviour
 
         _walkSpeed = _baseWalkSpeed * slowdown;
     }
-
 }
