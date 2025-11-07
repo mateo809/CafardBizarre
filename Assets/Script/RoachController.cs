@@ -310,8 +310,14 @@ public class RoachController : NetworkBehaviour
     public void OnMove(InputAction.CallbackContext ctx)
     {
         _moveInput = ctx.ReadValue<Vector2>();
+        //AudioController.Instance.PlaySound(AudioType.Step, AudioSourceType.Player);
     }
 
+    public void SoundStep()
+    {
+        AudioController.Instance.PlaySound(AudioType.Step, AudioSourceType.Player);
+
+    }
     public void OnJump(InputAction.CallbackContext ctx)
     {
         if (ctx.started)
@@ -349,6 +355,7 @@ public class RoachController : NetworkBehaviour
             {
                 Debug.Log("Picked up item on layer: " + LayerMask.LayerToName(hit.collider.gameObject.layer));
                 PickUpItem(hit.collider.gameObject);
+                AudioController.Instance.PlaySound(AudioType.PickItem, AudioSourceType.Player);
             }
             else
             {
@@ -373,6 +380,8 @@ public class RoachController : NetworkBehaviour
 
         Debug.Log("Dropped " + _carriedItem.name);
         DropItem();
+        AudioController.Instance.PlaySound(AudioType.DropItem, AudioSourceType.Player);
+
 
     }
 

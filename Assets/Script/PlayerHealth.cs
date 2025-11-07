@@ -85,6 +85,7 @@ public class PlayerHealth : NetworkBehaviour
     {
         if (isOwner)
         {
+            AudioController.Instance.PlaySound(AudioType.Die, AudioSourceType.Player);
             SpectatorController spectator = FindAnyObjectByType<SpectatorController>();
             if (spectator != null)
                 spectator.ActivateSpectator(this);

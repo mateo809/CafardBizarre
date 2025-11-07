@@ -92,6 +92,9 @@ public class EnemyAI : MonoBehaviour
     {
         if (!_agent.pathPending && _agent.remainingDistance <= _agent.stoppingDistance)
             StartCoroutine(WaitAndMoveRandom());
+        
+
+
     }
 
     IEnumerator WaitAndMoveRandom()
@@ -196,6 +199,12 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
+    public void SoundStep()
+    {
+        AudioController.Instance.PlaySound(AudioType.mobStep, AudioSourceType.Mob);
+
+    }
+
     void Attack()
     {
         if (_target == null)
@@ -219,7 +228,9 @@ public class EnemyAI : MonoBehaviour
 
         if (!_isAttacking && Time.time >= _lastAttackTime + attackCooldown)
         {
+
             StartCoroutine(DoAttack());
+
         }
     }
 
@@ -229,7 +240,7 @@ public class EnemyAI : MonoBehaviour
         _lastAttackTime = Time.time;
 
         _animator.SetBool("Attack", true);
-
+       
         float remainingCooldown = Mathf.Max(0, attackCooldown);
         yield return new WaitForSeconds(remainingCooldown);
 
@@ -246,6 +257,7 @@ public class EnemyAI : MonoBehaviour
             PlayerHealth playerHealth = _target.GetComponent<PlayerHealth>();
             if (playerHealth != null && playerHealth.isOwner)
                 playerHealth.TakeDamage(attackDamage);
+            AudioController.Instance.PlaySound(AudioType.Hit, AudioSourceType.Mob);
 
             Debug.Log($"{name} attaque {_target.name} pour {attackDamage} dégâts !");
         }
