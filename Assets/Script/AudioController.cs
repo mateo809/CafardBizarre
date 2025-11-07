@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UIElements;
 
 
 public enum AudioType
@@ -58,7 +59,7 @@ public class AudioController : MonoBehaviour
     }
 
     // Update is called once per frame
-    public void PlaySound(AudioType type, AudioSourceType sourceType)
+    public void PlaySound(AudioType type, AudioSourceType sourceType, Vector3 pos = default)
     {
         AudioClip clip = getClip(type);
 
@@ -67,9 +68,11 @@ public class AudioController : MonoBehaviour
             gameSource.PlayOneShot(clip);
         }
         else if (sourceType == AudioSourceType.Player)
-        { 
-            playerSource.PlayOneShot(clip);
-
+        {
+            if (pos != default)
+                AudioSource.PlayClipAtPoint(clip, pos); 
+            else
+                playerSource.PlayOneShot(clip);
         }
         else if (sourceType == AudioSourceType.Mob)
         { 

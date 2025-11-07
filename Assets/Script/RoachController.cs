@@ -512,7 +512,7 @@ public class RoachController : NetworkBehaviour
 
     public void SoundStep()
     {
-        AudioController.Instance.PlaySound(AudioType.Step, AudioSourceType.Player);
+        AudioController.Instance.PlaySound(AudioType.Step, AudioSourceType.Player, transform.position);
 
     }
     public void OnLook(InputAction.CallbackContext ctx)
