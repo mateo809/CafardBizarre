@@ -9,8 +9,14 @@ public class RoachCamera : MonoBehaviour
     public float DefaultHeight = 2f;
     public float WallClimbDistance = 10f;
     public float WallClimbHeight = 0f;
-    public float CarryingHeight = 2.5f;
+    public float CarryingBaseDistance = 4f;
+    public float CarryingBaseHeight = 2.5f;
 
+    [Header("Adaptation multipliers")]
+    public float CarryingDistanceMultiplier = 0.6f; // influence de la taille sur le recul
+    public float CarryingHeightMultiplier = 0.3f;   // influence de la taille sur la hauteur
+
+    [Header("Camera Movement")]
     public float MouseSensitivity = 2f;
     public float ZoomSpeed = 2f;
     public float MinDistance = 2f;
@@ -71,40 +77,49 @@ public class RoachCamera : MonoBehaviour
 
         if (PlayerController != null)
         {
+            switch (PlayerController._currentState)
+            {
+                case RoachController.PlayerState.WallClimbing:
+                    _targetDistance = Mathf.Lerp(_targetDistance, MaxDistance, Time.deltaTime * SmoothTransitionSpeed);
+                    targetHeight = WallClimbHeight;
+                    break;
 
-            if (PlayerController._currentState == RoachController.PlayerState.WallClimbing)
-            {
-                _targetDistance = MaxDistance;           
-                targetHeight = WallClimbHeight;         
-            }
-            else if (PlayerController._currentState == RoachController.PlayerState.Carrying)
-            {
-                if (PlayerController.carriedObject != null)
-                {
-                    float objectSize = PlayerController.carriedObject.GetComponent<Renderer>()?.bounds.size.magnitude ?? 1f;
-                    _targetDistance = Mathf.Clamp(objectSize * 1.5f, MinDistance, MaxDistance);
-                }
-                else
-                {
+                case RoachController.PlayerState.Carrying:
+                    if (PlayerController.carriedObject != null)
+                    {
+                        Renderer objRenderer = PlayerController.carriedObject.GetComponent<Renderer>();
+                        float objectSize = objRenderer ? objRenderer.bounds.size.magnitude : 1f;
+
+                        float adaptedDistance = CarryingBaseDistance + objectSize * CarryingDistanceMultiplier;
+                        float adaptedHeight = CarryingBaseHeight + objectSize * CarryingHeightMultiplier;
+
+                        _targetDistance = Mathf.Clamp(adaptedDistance, MinDistance, MaxDistance);
+                        targetHeight = adaptedHeight;
+                    }
+                    else
+                    {
+                        _targetDistance = DefaultDistance;
+                        targetHeight = CarryingBaseHeight;
+                    }
+                    break;
+
+                default:
                     _targetDistance = DefaultDistance;
-                }
-
-                targetHeight = CarryingHeight;
-            }
-            else
-            {
-                _targetDistance = DefaultDistance;
-                targetHeight = DefaultHeight;
+                    targetHeight = DefaultHeight;
+                    break;
             }
         }
 
+        // Lerp vers les valeurs cibles
         _currentDistance = Mathf.Lerp(_currentDistance, _targetDistance, Time.deltaTime * SmoothTransitionSpeed);
         _currentHeight = Mathf.Lerp(_currentHeight, targetHeight, Time.deltaTime * SmoothTransitionSpeed);
 
+        // Rotation de la caméra
         Vector3 targetRotation = new Vector3(_pitch, _yaw);
         _currentRotation = Vector3.SmoothDamp(_currentRotation, targetRotation, ref _rotationSmoothVelocity, RotationSmoothTime);
         Quaternion rot = Quaternion.Euler(_currentRotation.x, _currentRotation.y, 0f);
 
+        // Position avec gestion des collisions
         Vector3 desiredPosition = targetPosition - rot * Vector3.forward * _currentDistance + Vector3.up * _currentHeight;
         if (Physics.Linecast(targetPosition + Vector3.up * _currentHeight, desiredPosition, out RaycastHit hit, CollisionLayers))
         {
@@ -114,6 +129,4 @@ public class RoachCamera : MonoBehaviour
         transform.position = desiredPosition;
         transform.LookAt(targetPosition + Vector3.up * _currentHeight);
     }
-
-
 }
