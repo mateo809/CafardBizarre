@@ -42,7 +42,7 @@ public class GlobalMoneyUI : NetworkBehaviour
 
         while (retryCount < maxRetries)
         {
-            GameObject canvasGO = GameObject.FindWithTag("MainCanvas");
+            GameObject canvasGO = GameObject.FindWithTag("Canvas");
             if (canvasGO == null)
             {
                 canvasGO = GameObject.Find("Canvas");

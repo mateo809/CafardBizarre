@@ -74,8 +74,12 @@ public class PseudoManager : NetworkBehaviour
 
         _pseudoCanvas.gameObject.SetActive(true);
 
+        // Faire regarder le texte vers la caméra
         Vector3 directionToCamera = _mainCamera.transform.position - _pseudoCanvas.transform.position;
         _pseudoCanvas.transform.rotation = Quaternion.LookRotation(directionToCamera);
+
+        // Ajouter une rotation de 180° sur l'axe Y pour que le texte soit dans le bon sens
+        _pseudoCanvas.transform.Rotate(0, 180f, 0, Space.Self);
     }
 
     [ServerRpc]
