@@ -66,6 +66,7 @@ public class RoachController : NetworkBehaviour
     [SerializeField] private LayerMask _itemLayer = ~0;
     private GameObject _carriedItem;
     private bool _isCarryingObject = false;
+    private NetworkIdentity _carriedItemNetworkId;
 
     [Header("UI Feedback")]
     [SerializeField] private GameObject pickupFeedbackPrefab;
@@ -113,22 +114,19 @@ public class RoachController : NetworkBehaviour
         var playerInput = GetComponent<PlayerInput>();
         if (playerInput) playerInput.enabled = true;
 
-        // Créer le pivot de caméra si absent
         if (!_cameraPivot)
         {
             GameObject camObj = new GameObject("CameraPivot");
-            camObj.transform.SetParent(null); // Pas de parent pour éviter les rotations parasites
+            camObj.transform.SetParent(null);
             _cameraPivot = camObj.transform;
         }
 
-        // Initialiser la rotation de caméra
         _cameraYaw = transform.eulerAngles.y;
         _cameraPitch = 0f;
 
         if (_networkAnimator)
             _networkAnimator.applyRootMotion = false;
 
-        // Verrouiller le curseur pour un TPS
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
@@ -152,29 +150,69 @@ public class RoachController : NetworkBehaviour
     {
         _baseWalkSpeed = _walkSpeed;
 
-        mainCanvas = FindObjectOfType<Canvas>();
-        if (mainCanvas == null)
+        // Seulement le OWNER initialise les feedbacks
+        if (isOwner)
         {
-            Debug.LogError("Aucun Canvas trouvé dans la scène !");
+            StartCoroutine(FindCanvasWithRetry());
         }
-        else
+    }
+
+    private IEnumerator FindCanvasWithRetry()
+    {
+        int maxRetries = 50; // Max 5 secondes
+        int retryCount = 0;
+
+        while (retryCount < maxRetries)
         {
-            if (pickupFeedbackPrefab != null)
+            // Cherche d'abord par tag
+            GameObject canvasGO = GameObject.FindWithTag("Canvas");
+            Canvas canvas = null;
+
+            if (canvasGO != null)
             {
-                pickupFeedbackInstance = Instantiate(pickupFeedbackPrefab, mainCanvas.transform);
-                pickupFeedbackInstance.SetActive(false);
+                canvas = canvasGO.GetComponent<Canvas>();
             }
-            if (carryingFeedbackPrefab != null)
+
+            // Fallback : FindObjectOfType
+            if (canvas == null)
             {
-                carryingFeedbackInstance = Instantiate(carryingFeedbackPrefab, mainCanvas.transform);
-                carryingFeedbackInstance.SetActive(false);
+                canvas = FindObjectOfType<Canvas>();
             }
+
+            if (canvas != null && canvas.gameObject.activeInHierarchy)
+            {
+                mainCanvas = canvas;
+                SetupFeedbacks();
+                Debug.Log($"[RoachController] Canvas trouvé après {retryCount + 1} tentative(s)");
+                yield break;
+            }
+
+            retryCount++;
+            yield return new WaitForSeconds(0.1f);
+        }
+
+        Debug.LogError("[RoachController] Canvas introuvable après 5 secondes!");
+    }
+
+    private void SetupFeedbacks()
+    {
+        if (mainCanvas == null) return;
+
+        if (pickupFeedbackPrefab != null)
+        {
+            pickupFeedbackInstance = Instantiate(pickupFeedbackPrefab, mainCanvas.transform);
+            pickupFeedbackInstance.SetActive(false);
+        }
+
+        if (carryingFeedbackPrefab != null)
+        {
+            carryingFeedbackInstance = Instantiate(carryingFeedbackPrefab, mainCanvas.transform);
+            carryingFeedbackInstance.SetActive(false);
         }
     }
 
     private void Update()
     {
-        // Mise à jour des timers dans Update pour plus de précision
         if (_jumpPressed)
             _jumpBufferTimer = _jumpBufferTime;
         else
@@ -203,7 +241,6 @@ public class RoachController : NetworkBehaviour
 
     private void LateUpdate()
     {
-        // Mise à jour de la caméra après le mouvement
         HandleCameraMovement();
     }
 
@@ -240,11 +277,8 @@ public class RoachController : NetworkBehaviour
 
         Vector3 moveDir;
 
-        // Sur un mur, utiliser l'axe Y pour monter/descendre et X pour les côtés
         if (_currentState == PlayerState.WallClimbing)
         {
-            // Y input = monter/descendre le long du mur
-            // X input = se déplacer latéralement sur le mur
             Vector3 wallUp = -Vector3.Cross(_currentSurfaceNormal, transform.right).normalized;
             Vector3 wallRight = -Vector3.Cross(wallUp, _currentSurfaceNormal).normalized;
 
@@ -252,24 +286,19 @@ public class RoachController : NetworkBehaviour
         }
         else
         {
-            // Calculer la direction relative à la caméra (comportement normal)
             Vector3 cameraForward = _cameraPivot.forward;
             Vector3 cameraRight = _cameraPivot.right;
 
-            // Projeter sur le plan de la surface
             cameraForward = Vector3.ProjectOnPlane(cameraForward, _currentSurfaceNormal).normalized;
             cameraRight = Vector3.ProjectOnPlane(cameraRight, _currentSurfaceNormal).normalized;
 
-            // Direction de mouvement relative à la caméra
             moveDir = (cameraForward * _moveInput.y + cameraRight * _moveInput.x).normalized;
         }
 
-        // Vitesse avec sprint
         float speed = _walkSpeed;
         if (_sprintHeld && _currentState == PlayerState.Grounded && _carriedItem == null)
             speed *= _sprintMultiplier;
 
-        // Réduction en l'air (mais pas sur le mur)
         if (_currentState != PlayerState.Grounded && _currentState != PlayerState.WallClimbing)
             speed *= _airControlMultiplier;
 
@@ -281,7 +310,6 @@ public class RoachController : NetworkBehaviour
         Vector3 currentVel = _rb.linearVelocity;
         Vector3 horizontalVel = Vector3.ProjectOnPlane(currentVel, _currentSurfaceNormal);
 
-        // Accélération/décélération dynamique
         float accel = desiredVelocity.sqrMagnitude > 0.01f ? _acceleration : _deceleration;
 
         float lerpFactor = (_currentState == PlayerState.Grounded) ? 0.15f : 0.1f;
@@ -298,7 +326,6 @@ public class RoachController : NetworkBehaviour
 
         if (_currentState == PlayerState.WallClimbing)
         {
-            // Définir les axes sur le mur
             Vector3 wallUp = -Vector3.Cross(_currentSurfaceNormal, transform.right).normalized;
             Vector3 wallRight = -Vector3.Cross(wallUp, _currentSurfaceNormal).normalized;
 
@@ -326,14 +353,12 @@ public class RoachController : NetworkBehaviour
         }
     }
 
-
     private void ApplyGravityAndJump()
     {
         Vector3 gravityDir = -_currentSurfaceNormal;
         float g = (_currentState == PlayerState.Gliding) ? _glideGravity : _gravityStrength;
         _rb.AddForce(gravityDir * g, ForceMode.Acceleration);
 
-        // Coyote time et jump buffer
         bool canJump = (Time.time - _lastGroundedTime) <= _coyoteTime || _currentState == PlayerState.Grounded;
 
         if (_jumpBufferTimer > 0 && canJump && Time.time >= _nextJumpTime && _carriedItem == null)
@@ -356,7 +381,6 @@ public class RoachController : NetworkBehaviour
 
         _jumpPressed = false;
 
-        // Limiter la vitesse de chute en glide
         if (_currentState == PlayerState.Gliding)
         {
             Vector3 vel = _rb.linearVelocity;
@@ -373,12 +397,10 @@ public class RoachController : NetworkBehaviour
     {
         if (!_cameraPivot) return;
 
-        // Rotation de la caméra avec la souris
         _cameraYaw += _lookInput.x * _cameraSensitivity.x;
         _cameraPitch -= _lookInput.y * _cameraSensitivity.y;
         _cameraPitch = Mathf.Clamp(_cameraPitch, _cameraPitchLimits.x, _cameraPitchLimits.y);
 
-        // Orientation de la caméra
         Quaternion targetCameraRotation = Quaternion.Euler(_cameraPitch, _cameraYaw, 0f);
         _cameraPivot.rotation = Quaternion.Slerp(
             _cameraPivot.rotation,
@@ -386,7 +408,6 @@ public class RoachController : NetworkBehaviour
             _cameraRotationSpeed * Time.deltaTime
         );
 
-        // Position de la caméra derrière le joueur
         Vector3 targetPosition = transform.position
             - _cameraPivot.forward * _cameraDistance
             + _currentSurfaceNormal * _cameraHeight;
@@ -558,7 +579,7 @@ public class RoachController : NetworkBehaviour
             if ((_itemLayer.value & hitLayerMask) != 0)
             {
                 Debug.Log("Picked up item on layer: " + LayerMask.LayerToName(hit.collider.gameObject.layer));
-                PickUpItem(hit.collider.gameObject);
+                PickUpItemServerRPC(hit.collider.gameObject);
             }
             else
             {
@@ -571,24 +592,21 @@ public class RoachController : NetworkBehaviour
         }
     }
 
-    public void OnDrop(InputAction.CallbackContext ctx)
-    {
-        if (!ctx.started) return;
-
-        if (_carriedItem == null)
-        {
-            Debug.Log("Nothing to drop.");
-            return;
-        }
-
-        Debug.Log("Dropped " + _carriedItem.name);
-        DropItem();
-    }
-
-    public void PickUpItem(GameObject item)
+    [ServerRpc]
+    private void PickUpItemServerRPC(GameObject item)
     {
         if (item == null)
             return;
+
+        PickUpItemObserverRPC(item);
+    }
+
+    [ObserversRpc]
+    private void PickUpItemObserverRPC(GameObject item)
+    {
+        if (item == null)
+            return;
+
         carriedObject = item;
         _isCarryingObject = true;
         _carriedItem = item;
@@ -596,8 +614,9 @@ public class RoachController : NetworkBehaviour
         if (item.TryGetComponent(out ItemPickUp itemPickUp))
         {
             itemPickUp.Interact(gameObject);
+            _currentWeight = itemPickUp.weight;
         }
-        _currentWeight = itemPickUp.weight;
+
         ApplyCarrySpeedModifier();
 
         Renderer itemRenderer = _carriedItem.GetComponent<Renderer>();
@@ -606,7 +625,6 @@ public class RoachController : NetworkBehaviour
         if (itemRenderer != null)
         {
             _currentState = PlayerState.Carrying;
-
             float yOffset = itemRenderer.bounds.extents.y + 0.5f;
             float zOffset = 0.2f;
             offset = new Vector3(0, yOffset, zOffset);
@@ -622,11 +640,40 @@ public class RoachController : NetworkBehaviour
             rb.isKinematic = true;
             rb.detectCollisions = false;
         }
+
+        _carriedItemNetworkId = item.GetComponent<NetworkIdentity>();
     }
 
-    public void DropItem()
+    public void PickUpItem(GameObject item)
+    {
+        PickUpItemServerRPC(item);
+    }
+
+    public void OnDrop(InputAction.CallbackContext ctx)
+    {
+        if (!ctx.started) return;
+
+        if (_carriedItem == null)
+        {
+            Debug.Log("Nothing to drop.");
+            return;
+        }
+
+        Debug.Log("Dropped " + _carriedItem.name);
+        DropItemServerRPC();
+    }
+
+    [ServerRpc]
+    private void DropItemServerRPC()
+    {
+        DropItemObserverRPC();
+    }
+
+    [ObserversRpc]
+    private void DropItemObserverRPC()
     {
         if (_carriedItem == null) return;
+
         _isCarryingObject = false;
         InventoryManager inventory = GetComponent<InventoryManager>();
         if (inventory != null)
@@ -673,7 +720,13 @@ public class RoachController : NetworkBehaviour
 
         Debug.Log("Dropped " + _carriedItem.name);
         _carriedItem = null;
+        _carriedItemNetworkId = null;
         _currentState = PlayerState.Grounded;
+    }
+
+    public void DropItem()
+    {
+        DropItemServerRPC();
     }
 
     private IEnumerator ReenableCollision(Collider a, Collider b, float delay)

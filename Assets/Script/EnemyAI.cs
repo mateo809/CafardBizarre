@@ -1,14 +1,15 @@
+using PurrNet;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
-using PurrNet;
 
-public class EnemyAI : MonoBehaviour
+public class EnemyAI : NetworkBehaviour
 {
     [Header("Navigation")]
     public float patrolRadius = 15f;
     public float patrolSpeed = 2f;
     public float chaseSpeed = 4f;
+    public float chaseAcceleration = 5f;
 
     [Header("Vision")]
     public float viewDistance = 12f;
@@ -20,15 +21,19 @@ public class EnemyAI : MonoBehaviour
     [Header("Spotlight")]
     public Light spotlight;
     public float spotlightDetectionAngle = 30f;
+    private NetworkTransform _spotlightNetworkTransform;
 
     [Header("Combat")]
     public float attackRange = 3f;
     public float attackCooldown = 2f;
     public int attackDamage = 10;
+    public float attackDistance = 5f;
 
     [Header("Comportement")]
     public float loseTargetTime = 3f;
     public float idleTimeAtDestination = 2f;
+    public float minPatrolWaitTime = 1f;
+    public float maxPatrolWaitTime = 3f;
 
     [Header("Feedback Visuel")]
     public GameObject alertPrefab;
@@ -48,6 +53,7 @@ public class EnemyAI : MonoBehaviour
     private float _lastAttackTime;
     private PlayerStress _playerStress;
     private bool _isAttacking;
+    private bool _patrolCoroutineRunning = false;
 
     private enum State { Patrol, Chase, Attack }
     private State _state = State.Patrol;
@@ -62,12 +68,21 @@ public class EnemyAI : MonoBehaviour
         _agent.updateRotation = !useRootMotion;
 
         _agent.speed = patrolSpeed;
+        _agent.stoppingDistance = 0.5f;
+
+        if (spotlight != null)
+        {
+            _spotlightNetworkTransform = spotlight.GetComponent<NetworkTransform>();
+        }
+
         GoToRandomPoint();
         SetAnimationState("Walk");
     }
 
     void Update()
     {
+        if (!isServer) return;
+
         switch (_state)
         {
             case State.Patrol:
@@ -90,15 +105,18 @@ public class EnemyAI : MonoBehaviour
 
     void Patrol()
     {
-        if (!_agent.pathPending && _agent.remainingDistance <= _agent.stoppingDistance)
+        if (!_agent.pathPending && _agent.remainingDistance <= _agent.stoppingDistance && !_patrolCoroutineRunning)
             StartCoroutine(WaitAndMoveRandom());
     }
 
     IEnumerator WaitAndMoveRandom()
     {
-        yield return new WaitForSeconds(idleTimeAtDestination);
+        _patrolCoroutineRunning = true;
+        float randomWait = Random.Range(minPatrolWaitTime, maxPatrolWaitTime);
+        yield return new WaitForSeconds(randomWait);
         GoToRandomPoint();
         SetAnimationState("Walk");
+        _patrolCoroutineRunning = false;
     }
 
     void GoToRandomPoint()
@@ -132,9 +150,8 @@ public class EnemyAI : MonoBehaviour
                 {
                     _target = player;
                     _lastSeenTime = Time.time;
-                    _state = State.Attack;
-                    _agent.isStopped = true;
-                    SetAnimationState("Attack");
+                    _state = State.Chase;
+                    SetAnimationState("Run");
                     playerVisible = true;
 
                     if (_playerStress == null)
@@ -152,15 +169,15 @@ public class EnemyAI : MonoBehaviour
 
         if (!playerVisible && _target != null)
         {
-            float distToTarget = Vector3.Distance(transform.position, _target.position);
-            if (distToTarget > viewDistance * 1.5f || Time.time - _lastSeenTime > loseTargetTime)
+            float timeSinceLastSeen = Time.time - _lastSeenTime;
+
+            if (timeSinceLastSeen > loseTargetTime)
             {
                 GoBackToPatrol();
             }
-            else
+            else if (_playerStress != null)
             {
-                if (_playerStress != null)
-                    _playerStress.SetDetected(false);
+                _playerStress.SetDetected(false);
             }
         }
         else if (!playerVisible && _playerStress != null)
@@ -171,11 +188,15 @@ public class EnemyAI : MonoBehaviour
 
     void Chase()
     {
-        if (_target == null) return;
+        if (_target == null)
+        {
+            GoBackToPatrol();
+            return;
+        }
 
         float dist = Vector3.Distance(transform.position, _target.position);
 
-        if (dist > viewDistance * 1.5f)
+        if (Time.time - _lastSeenTime > loseTargetTime)
         {
             GoBackToPatrol();
             return;
@@ -190,6 +211,8 @@ public class EnemyAI : MonoBehaviour
         else
         {
             _agent.isStopped = false;
+            _agent.speed = chaseSpeed;
+            _agent.acceleration = chaseAcceleration;
             _agent.SetDestination(_target.position);
             SetAnimationState("Run");
             FaceTarget(_target.position);
@@ -207,11 +230,18 @@ public class EnemyAI : MonoBehaviour
         float dist = Vector3.Distance(transform.position, _target.position);
 
         bool playerFar = dist > attackRange + 2f;
-        bool lostForAWhile = Time.time - _lastSeenTime > 1.0f;
+        bool lostForAWhile = Time.time - _lastSeenTime > loseTargetTime;
 
         if (playerFar && lostForAWhile)
         {
             GoBackToPatrol();
+            return;
+        }
+
+        if (dist > attackRange + 1f)
+        {
+            _state = State.Chase;
+            _agent.isStopped = false;
             return;
         }
 
@@ -228,34 +258,38 @@ public class EnemyAI : MonoBehaviour
         _isAttacking = true;
         _lastAttackTime = Time.time;
 
-        _animator.SetBool("Attack", true);
+        SetAnimationState("Attack");
 
-        float remainingCooldown = Mathf.Max(0, attackCooldown);
-        yield return new WaitForSeconds(remainingCooldown);
+        float attackDelay = attackCooldown * 0.5f;
+        yield return new WaitForSeconds(attackDelay);
 
-        _animator.SetBool("Attack", false);
+        ApplyAttackDamageRPC();
 
+        yield return new WaitForSeconds(attackCooldown * 0.5f);
 
+        SetAnimationState("Idle");
         _isAttacking = false;
     }
 
-    public void ApplyAttackDamage()
+    [ServerRpc]
+    private void ApplyAttackDamageRPC()
     {
         if (_target != null)
         {
             PlayerHealth playerHealth = _target.GetComponent<PlayerHealth>();
-            if (playerHealth != null && playerHealth.isOwner)
+            if (playerHealth != null)
+            {
                 playerHealth.TakeDamage(attackDamage);
-
-            Debug.Log($"{name} attaque {_target.name} pour {attackDamage} dégâts !");
+                Debug.Log($"{name} attaque {_target.name} pour {attackDamage} dégâts !");
+            }
         }
     }
-
 
     void GoBackToPatrol()
     {
         _state = State.Patrol;
         _agent.isStopped = false;
+        _agent.speed = patrolSpeed;
         _target = null;
         _playerStress = null;
         if (_currentAlert) Destroy(_currentAlert);
@@ -274,15 +308,33 @@ public class EnemyAI : MonoBehaviour
     void SetAnimationState(string state)
     {
         if (_animator == null) return;
+
+        SyncAnimationStateRPC(state);
+    }
+
+    [ObserversRpc]
+    private void SyncAnimationStateRPC(string state)
+    {
+        if (_animator == null) return;
+
         _animator.SetBool("Walk", false);
         _animator.SetBool("Run", false);
-        if (state != "Attack") _animator.SetBool("Attack", false);
+        _animator.SetBool("Attack", false);
 
         switch (state)
         {
-            case "Walk": _animator.SetBool("Walk", true); break;
-            case "Run": _animator.SetBool("Run", true); break;
-            case "Attack": _animator.SetBool("Attack", true); break;
+            case "Walk":
+                _animator.SetBool("Walk", true);
+                break;
+            case "Run":
+                _animator.SetBool("Run", true);
+                break;
+            case "Attack":
+                _animator.SetBool("Attack", true);
+                break;
+            case "Idle":
+                // Idle = tous les bools à false
+                break;
         }
     }
 
@@ -297,16 +349,42 @@ public class EnemyAI : MonoBehaviour
 
     void UpdateSpotlight()
     {
-        if (!spotlight) return;
+        if (!spotlight || !isServer) return;
+
+        Vector3 targetPos = Vector3.zero;
+        bool hasTarget = false;
 
         if (_target != null)
         {
-            Vector3 dirToTarget = (_target.position - spotlight.transform.position).normalized;
-            spotlight.transform.rotation = Quaternion.LookRotation(dirToTarget);
+            targetPos = _target.position;
+            hasTarget = true;
         }
         else if (FovTransform)
         {
-            spotlight.transform.rotation = FovTransform.transform.rotation;
+            targetPos = FovTransform.transform.position + FovTransform.transform.forward * viewDistance;
+            hasTarget = true;
+        }
+
+        if (hasTarget)
+        {
+            Vector3 dirToTarget = (targetPos - spotlight.transform.position).normalized;
+            Quaternion targetRot = Quaternion.LookRotation(dirToTarget);
+            spotlight.transform.rotation = Quaternion.Slerp(
+                spotlight.transform.rotation,
+                targetRot,
+                Time.deltaTime * 5f
+            );
+
+            SyncSpotlightRotationRPC(spotlight.transform.rotation);
+        }
+    }
+
+    [ObserversRpc]
+    private void SyncSpotlightRotationRPC(Quaternion newRotation)
+    {
+        if (spotlight != null)
+        {
+            spotlight.transform.rotation = newRotation;
         }
     }
 

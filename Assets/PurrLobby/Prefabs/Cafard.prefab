@@ -50,11 +50,14 @@ MonoBehaviour:
   DefaultHeight: 2
   WallClimbDistance: 10
   WallClimbHeight: 0
-  CarryingHeight: 15
+  CarryingBaseDistance: 4
+  CarryingBaseHeight: 2.5
+  CarryingDistanceMultiplier: 0.6
+  CarryingHeightMultiplier: 0.3
   MouseSensitivity: 0.05
   ZoomSpeed: 2
   MinDistance: 5
-  MaxDistance: 50
+  MaxDistance: 25
   RotationSmoothTime: 0.1
   MinPitch: -60
   MaxPitch: 60
@@ -272,6 +275,8 @@ GameObject:
   - component: {fileID: 5823518533225857531}
   - component: {fileID: 7070765802204805186}
   - component: {fileID: 6317445930183475722}
+  - component: {fileID: 203073907670086446}
+  - component: {fileID: 8453728952278247290}
   m_Layer: 3
   m_Name: Cafard
   m_TagString: Untagged
@@ -563,8 +568,8 @@ MonoBehaviour:
   _jumpCooldown: 1.5
   _coyoteTime: 0.15
   _jumpBufferTime: 0.2
-  _wallCheckDistance: 1
-  _alignSpeed: 8
+  _wallCheckDistance: 2
+  _alignSpeed: 20
   _maxWallAngle: 360
   _climbableLayers:
     serializedVersion: 2
@@ -585,6 +590,10 @@ MonoBehaviour:
     m_Bits: 512
   pickupFeedbackPrefab: {fileID: 4282804885652951674, guid: 8ce9a902f5559f84fab2d23af246838a, type: 3}
   carryingFeedbackPrefab: {fileID: 3834762427110480492, guid: 4af4bba493838c945abc13629d20a5bd, type: 3}
+  _maxStress: 20
+  _stressSpeedReduction: 0.3
+  _stressCameraShakeIntensity: 1.5
+  _stressCameraShakeFrequency: 5
   _currentState: 0
   carriedObject: {fileID: 0}
 --- !u!65 &6797102666521832112
@@ -787,6 +796,60 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::InventorySetSlot
   slotPrefab: {fileID: 279452752479699063, guid: 86c51fbfbf1ba774c83e2e5d4e904ff8, type: 3}
   emptySprite: {fileID: 10917, guid: 0000000000000000f000000000000000, type: 0}
+--- !u!114 &203073907670086446
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2407460229403786492}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0842d754ce938244b81d83b09cc0f1c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GlobalMoneyUI
+  _isSetup: 0
+  _prefabId: -2147483648
+  _componentIndex: -2147483648
+  _shouldBePooled: 0
+  _parent: {fileID: 0}
+  _invertedPathToNearestParent: 
+  _directChildren: []
+  _networkRules: {fileID: 11400000, guid: d8799083b96579a42b8b2d03e4ceae98, type: 2}
+  _visitiblityRules: {fileID: 11400000, guid: 8f014a5bd8dc68646a2a3c0b18c5bbd8, type: 2}
+  moneyTextPrefab: {fileID: 7805691443003237138, guid: a309b0d254daf72478efe428487c995f, type: 3}
+  timerTextPrefab: {fileID: 1713750731337618454, guid: 8bf2655a47698224487582470795c6b1, type: 3}
+  _winScene: Win
+  _looseScene: Loose
+  _moneyTarget: 300
+--- !u!114 &8453728952278247290
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2407460229403786492}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6cffaf389abd82b429798c84b3ed9c73, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PseudoManager
+  _isSetup: 0
+  _prefabId: -2147483648
+  _componentIndex: -2147483648
+  _shouldBePooled: 0
+  _parent: {fileID: 0}
+  _invertedPathToNearestParent: 
+  _directChildren: []
+  _networkRules: {fileID: 0}
+  _visitiblityRules: {fileID: 0}
+  pseudoPrefab: {fileID: 3034104655896538666, guid: a8121a6b931c24845a39378afa3d3363, type: 3}
+  offset: {x: 0, y: 4, z: 0}
+  distanceThreshold: 50
+  playerPseudo:
+    _value: Player
+    _ownerAuth: 0
+    _sendIntervalInSeconds: 0
 --- !u!1 &2472727129540226858
 GameObject:
   m_ObjectHideFlags: 0

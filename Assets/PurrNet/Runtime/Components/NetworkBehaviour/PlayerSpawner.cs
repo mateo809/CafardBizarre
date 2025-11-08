@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using PurrNet.Logging;
 using PurrNet.Modules;
@@ -34,7 +35,7 @@ namespace PurrNet
             }
 
             if (hadNullEntry)
-                PurrLogger.LogWarning($"Some spawn points were invalid and have been cleaned up.", this);
+                PurrLogger.LogWarning("Some spawn points were invalid and have been cleaned up.", this);
         }
 
         private void OnValidate()
@@ -51,18 +52,6 @@ namespace PurrNet
             if (asServer && manager.TryGetModule(out ScenePlayersModule scenePlayersModule, true))
             {
                 scenePlayersModule.onPlayerLoadedScene += OnPlayerLoadedScene;
-
-                if (!manager.TryGetModule(out ScenesModule scenes, true))
-                    return;
-
-                if (!scenes.TryGetSceneID(gameObject.scene, out var sceneID))
-                    return;
-
-                if (scenePlayersModule.TryGetPlayersInScene(sceneID, out var players))
-                {
-                    foreach (var player in players)
-                        OnPlayerLoadedScene(player, sceneID, true);
-                }
             }
         }
 
@@ -81,13 +70,80 @@ namespace PurrNet
 
         private void OnPlayerLoadedScene(PlayerID player, SceneID scene, bool asServer)
         {
-            var main = NetworkManager.main; if (!main || !main.TryGetModule(out ScenesModule scenes, true))
-                return; var unityScene = gameObject.scene; if (!scenes.TryGetSceneID(unityScene, out var sceneID))
-                return; if (sceneID != scene)
-                return; if (!asServer) return;
+            var main = NetworkManager.main;
+            if (!main || !main.TryGetModule(out ScenesModule scenes, true))
+                return;
+
+            var unityScene = gameObject.scene;
+            if (!scenes.TryGetSceneID(unityScene, out var sceneID))
+                return;
+
+            if (sceneID != scene || !asServer)
+                return;
+
+            StartCoroutine(WaitAndSpawnPlayer(player, unityScene));
+        }
+
+        private IEnumerator WaitAndSpawnPlayer(PlayerID player, UnityEngine.SceneManagement.Scene unityScene)
+        {
+            float waitTime = 0f;
+            IntroManager introManager = Object.FindObjectOfType<IntroManager>();
+
+            // Attendre la fin de l'intro (max 60 secondes)
+            while (introManager != null && !introManager.IsIntroPlaying() && waitTime < 60f)
+            {
+                waitTime += Time.deltaTime;
+                yield return null;
+            }
+
+            // Si IntroManager est présent et que l’intro est encore en cours, attendre qu’elle se termine
+            while (introManager != null && introManager.IsIntroPlaying() && waitTime < 60f)
+            {
+                waitTime += Time.deltaTime;
+                yield return null;
+            }
+
+            // Spawn du joueur
+            SpawnPlayer(player, unityScene);
+        }
+
+        private void SpawnPlayer(PlayerID player, UnityEngine.SceneManagement.Scene unityScene)
+        {
+            var main = NetworkManager.main;
+            if (!main) return;
+
             bool isDestroyOnDisconnectEnabled = main.networkRules.ShouldDespawnOnOwnerDisconnect();
-            if (!_ignoreNetworkRules && !isDestroyOnDisconnectEnabled && main.TryGetModule(out GlobalOwnershipModule ownership, true) && ownership.PlayerOwnsSomething(player)) return; GameObject newPlayer; CleanupSpawnPoints(); if (spawnPoints.Count > 0) { var spawnPoint = spawnPoints[_currentSpawnPoint]; _currentSpawnPoint = (_currentSpawnPoint + 1) % spawnPoints.Count; newPlayer = UnityProxy.Instantiate(_playerPrefab, spawnPoint.position, spawnPoint.rotation, unityScene); } else { _playerPrefab.transform.GetPositionAndRotation(out var position, out var rotation); newPlayer = UnityProxy.Instantiate(_playerPrefab, position, rotation, unityScene); }
-            if (newPlayer.TryGetComponent(out NetworkIdentity identity)) identity.GiveOwnership(player);
+
+            if (!_ignoreNetworkRules &&
+                !isDestroyOnDisconnectEnabled &&
+                main.TryGetModule(out GlobalOwnershipModule ownership, true) &&
+                ownership.PlayerOwnsSomething(player))
+                return;
+
+            CleanupSpawnPoints();
+
+            GameObject newPlayer;
+
+            if (spawnPoints.Count > 0)
+            {
+                var spawnPoint = spawnPoints[_currentSpawnPoint];
+                _currentSpawnPoint = (_currentSpawnPoint + 1) % spawnPoints.Count;
+                newPlayer = UnityProxy.Instantiate(_playerPrefab, spawnPoint.position, spawnPoint.rotation, unityScene);
+            }
+            else
+            {
+                _playerPrefab.transform.GetPositionAndRotation(out var position, out var rotation);
+                newPlayer = UnityProxy.Instantiate(_playerPrefab, position, rotation, unityScene);
+            }
+
+            // Donne la possession réseau au joueur
+            if (newPlayer.TryGetComponent(out NetworkIdentity identity))
+                identity.GiveOwnership(player);
+
+            // S'assurer que le joueur n'est actif qu'après la fin de l'intro
+            newPlayer.SetActive(true);
+
+            PurrLogger.Log($"[PlayerSpawner] Joueur {player} spawné après l'intro.");
         }
     }
 }

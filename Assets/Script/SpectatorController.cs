@@ -4,6 +4,7 @@ using TMPro;
 using PurrNet;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 public class SpectatorController : NetworkBehaviour
 {
@@ -17,10 +18,14 @@ public class SpectatorController : NetworkBehaviour
     public float cameraHeight = 1.5f;
     public float cameraDistance = 3f;
 
+    [Header("Game Over")]
+    [PurrScene, SerializeField] private string _looseScene;
+
     private List<PlayerHealth> alivePlayers = new List<PlayerHealth>();
     private int currentIndex = 0;
     private PlayerHealth localPlayer;
     private bool isSpectating = false;
+    private bool _gameEnded = false;
 
     void Start()
     {
@@ -30,7 +35,6 @@ public class SpectatorController : NetworkBehaviour
 
         if (nextButton != null) nextButton.onClick.AddListener(NextPlayer);
         if (prevButton != null) prevButton.onClick.AddListener(PrevPlayer);
-
         if (spectatorCam != null)
             spectatorCam.gameObject.SetActive(false);
     }
@@ -51,7 +55,12 @@ public class SpectatorController : NetworkBehaviour
 
         if (alivePlayers.Count == 0)
         {
-            Debug.LogWarning("[Spectator] Aucun joueur vivant trouvé !");
+            Debug.LogWarning("[Spectator] Aucun joueur vivant trouvé ! Jeu terminé.");
+            // Loose immédiatement s'il n'y a pas d'autres joueurs
+            if (isServer)
+            {
+                TriggerGameOverRPC(false);
+            }
             yield break;
         }
 
@@ -72,6 +81,7 @@ public class SpectatorController : NetworkBehaviour
     public void RefreshPlayersList()
     {
         alivePlayers.Clear();
+
         foreach (var p in PlayerHealth.AllPlayers)
         {
             if (p != null && p != localPlayer && p.currentHealth > 0)
@@ -83,19 +93,36 @@ public class SpectatorController : NetworkBehaviour
 
     void LateUpdate()
     {
-        if (isSpectating)
-            UpdateCamera();
+        if (!isSpectating || _gameEnded)
+            return;
+
+        // Vérifier si tous les autres joueurs sont morts
+        if (isServer)
+        {
+            RefreshPlayersList();
+
+            if (alivePlayers.Count == 0)
+            {
+                Debug.Log("[Spectator] Plus de joueurs vivants ! Jeu terminé.");
+                _gameEnded = true;
+                TriggerGameOverRPC(false);
+                return;
+            }
+        }
+
+        UpdateCamera();
     }
 
     private void UpdateCamera()
     {
-        if (alivePlayers.Count == 0 || spectatorCam == null) return;
+        if (alivePlayers.Count == 0 || spectatorCam == null)
+            return;
 
         PlayerHealth target = alivePlayers[currentIndex];
-        if (target == null) return;
+        if (target == null)
+            return;
 
         Transform t = target.transform;
-
         Vector3 offset = -t.forward * cameraDistance + Vector3.up * cameraHeight;
         spectatorCam.transform.position = t.position + offset;
         spectatorCam.transform.LookAt(t.position + Vector3.up * cameraHeight);
@@ -107,6 +134,7 @@ public class SpectatorController : NetworkBehaviour
     public void NextPlayer()
     {
         if (alivePlayers.Count == 0) return;
+
         currentIndex = (currentIndex + 1) % alivePlayers.Count;
         UpdateCamera();
     }
@@ -114,7 +142,24 @@ public class SpectatorController : NetworkBehaviour
     public void PrevPlayer()
     {
         if (alivePlayers.Count == 0) return;
+
         currentIndex = (currentIndex - 1 + alivePlayers.Count) % alivePlayers.Count;
         UpdateCamera();
+    }
+
+    [ObserversRpc]
+    private void TriggerGameOverRPC(bool isWin)
+    {
+        _gameEnded = true;
+
+        if (isWin)
+        {
+            Debug.Log("[Spectator] Win!");
+        }
+        else
+        {
+            Debug.Log("[Spectator] Loose! Pas de joueurs vivants.");
+            SceneManager.LoadSceneAsync(_looseScene);
+        }
     }
 }
