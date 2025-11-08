@@ -1,4 +1,5 @@
 using PurrNet;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -19,6 +20,7 @@ public class PlayerHealth : NetworkBehaviour
     private Slider _healthSlider;
     private GameObject _healthBarInstance;
     private HealthBarUI _healthBarUI;
+    private Canvas _cachedCanvas;
 
     protected override void OnSpawned()
     {
@@ -29,33 +31,71 @@ public class PlayerHealth : NetworkBehaviour
 
         currentHealth = maxHealth;
 
+        // IMPORTANT: Seulement le OWNER affiche son UI
         if (isOwner && healthBarPrefab != null)
         {
-            Canvas canvas = FindObjectOfType<Canvas>();
-            if (canvas != null)
-            {
-
-                _healthBarInstance = Instantiate(healthBarPrefab, canvas.transform, false);
-
-                _healthSlider = _healthBarInstance.GetComponentInChildren<Slider>();
-                _healthBarUI = _healthBarInstance.GetComponent<HealthBarUI>();
-
-                if (_healthSlider != null)
-                {
-                    _healthSlider.maxValue = maxHealth;
-                    _healthSlider.value = currentHealth;
-                }
-
-                if (_healthBarUI != null)
-                    _healthBarUI.SetHealth(currentHealth, maxHealth);
-            }
+            StartCoroutine(SetupHealthUIWithRetry());
         }
+    }
+
+    private IEnumerator SetupHealthUIWithRetry()
+    {
+        int maxRetries = 50; // Max 5 secondes
+        int retryCount = 0;
+
+        while (retryCount < maxRetries)
+        {
+            // Cherche d'abord par tag (plus fiable en build)
+            GameObject canvasGO = GameObject.FindWithTag("Canvas");
+            Canvas canvas = null;
+
+            if (canvasGO != null)
+            {
+                canvas = canvasGO.GetComponent<Canvas>();
+            }
+
+            // Fallback : FindObjectOfType
+            if (canvas == null)
+            {
+                canvas = FindObjectOfType<Canvas>();
+            }
+
+            if (canvas != null && canvas.gameObject.activeInHierarchy)
+            {
+                _cachedCanvas = canvas;
+                SetupHealthUI();
+                Debug.Log($"[PlayerHealth] Canvas trouvé pour {gameObject.name} (tentative {retryCount + 1})");
+                yield break;
+            }
+
+            retryCount++;
+            yield return new WaitForSeconds(0.1f);
+        }
+
+        Debug.LogError($"[PlayerHealth] Canvas introuvable après 5 secondes pour {gameObject.name}!");
+    }
+
+    private void SetupHealthUI()
+    {
+        if (_cachedCanvas == null) return;
+
+        _healthBarInstance = Instantiate(healthBarPrefab, _cachedCanvas.transform, false);
+        _healthSlider = _healthBarInstance.GetComponentInChildren<Slider>();
+        _healthBarUI = _healthBarInstance.GetComponent<HealthBarUI>();
+
+        if (_healthSlider != null)
+        {
+            _healthSlider.maxValue = maxHealth;
+            _healthSlider.value = currentHealth;
+        }
+
+        if (_healthBarUI != null)
+            _healthBarUI.SetHealth(currentHealth, maxHealth);
     }
 
     private void OnDestroy()
     {
         AllPlayers.Remove(this);
-
         if (_healthBarInstance != null)
             Destroy(_healthBarInstance);
     }

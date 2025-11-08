@@ -1,13 +1,10 @@
-using UnityEngine;
 using PurrNet;
-using System.Runtime.InteropServices;
+using UnityEngine;
 
 public class ShopZone : NetworkBehaviour
 {
     [Header("Shop Settings")]
-
     private RoachController roachController;
-
     [SerializeField] GlobalEconomyManager _globalEconomyManager;
 
     private void OnTriggerEnter(Collider other)
@@ -15,31 +12,57 @@ public class ShopZone : NetworkBehaviour
         if (other.gameObject.layer == LayerMask.NameToLayer("Item"))
         {
             Destroy(other.gameObject);
-            return; 
+            return;
         }
 
         InventoryManager playerInventory = other.GetComponent<InventoryManager>();
         roachController = other.GetComponent<RoachController>();
+
         if (playerInventory != null)
         {
             Debug.Log(playerInventory.GetSlot(0).item.priceItem);
             Debug.Log(playerInventory.GetSlot(0).price);
-            SellAllItems(playerInventory);
+
+            RequestSellItem(playerInventory.GetSlot(0).price);
         }
     }
 
-
-    private void SellAllItems(InventoryManager playerInventory)
+    private void RequestSellItem(int itemPrice)
     {
-        
-        int itemPrice = playerInventory.GetSlot(0).price;
+        if (isServer)
+        {
+            ProcessSellOnServer(itemPrice);
+        }
+        else
+        {
+            ProcessSellOnServerRPC(itemPrice);
+        }
+    }
 
-       _globalEconomyManager.totalMoney.value += itemPrice;
+    [ServerOnly]
+    private void ProcessSellOnServerRPC(int itemPrice)
+    {
+        ProcessSellOnServer(itemPrice);
+    }
 
-        Debug.Log($"Sold 1 x {playerInventory.GetSlot(0).item.itemName} for {itemPrice} coins.");
+    private void ProcessSellOnServer(int itemPrice)
+    {
+        if (itemPrice < 0)
+        {
+            Debug.LogWarning("Tentative de vente avec un prix invalide!");
+            return;
+        }
+
+        BroadcastSellToAllClients(itemPrice);
+    }
+
+    [ServerRpc]
+    private void BroadcastSellToAllClients(int itemPrice)
+    {
+        _globalEconomyManager.totalMoney.value += itemPrice;
+        Debug.Log($" Sold item for {itemPrice} coins. Total money: {_globalEconomyManager.totalMoney.value}");
 
         if (roachController != null)
             roachController.DropItem();
-
     }
 }

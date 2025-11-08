@@ -6,6 +6,8 @@ TagManager:
   tags:
   - StressBar
   - Item
+  - Canvas
+  - InventoryParent
   layers:
   - Default
   - TransparentFX
@@ -17,7 +19,7 @@ TagManager:
   - Wall
   - Floor
   - Item
-  - 
+  - Enemy
   - 
   - 
   - 
