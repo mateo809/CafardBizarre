@@ -2701,7 +2701,7 @@ GameObject:
   m_Component:
   - component: {fileID: 742493790}
   m_Layer: 0
-  m_Name: GameObject (1)
+  m_Name: IntroPoint
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5504,7 +5504,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1422383415}
   m_Layer: 0
-  m_Name: GameObject
+  m_Name: IntroPoint
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -6657,7 +6657,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1987302586}
   m_Layer: 0
-  m_Name: GameObject (2)
+  m_Name: IntroPoint
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

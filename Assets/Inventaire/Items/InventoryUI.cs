@@ -13,7 +13,7 @@ public class InventorySetSlot : NetworkBehaviour
     private Transform slotParent;
     private bool _initialized = false;
 
-    private void Awake()
+    private void Start()
     {
         if (isOwner)
         {
@@ -60,7 +60,6 @@ public class InventorySetSlot : NetworkBehaviour
 
     public void RefreshUI(List<InventorySlot> slots)
     {
-        // Seulement le OWNER met à jour son UI
         if (!isOwner)
         {
             Debug.LogWarning($"[InventorySetSlot] RefreshUI appelé par un non-owner sur {gameObject.name}. Ignoré.");
@@ -73,13 +72,11 @@ public class InventorySetSlot : NetworkBehaviour
             return;
         }
 
-        // Détruire les anciens slots
         foreach (Transform child in slotParent)
         {
             Destroy(child.gameObject);
         }
 
-        // Créer les nouveaux slots
         foreach (var slot in slots)
         {
             GameObject slotGO = Instantiate(slotPrefab, slotParent);
