@@ -26,7 +26,7 @@ Transform:
   m_GameObject: {fileID: 8680997698428124}
   serializedVersion: 2
   m_LocalRotation: {x: 0.19131142, y: -0, z: -0, w: 0.9815294}
-  m_LocalPosition: {x: 0, y: 2.9700148, z: -4.4800005}
+  m_LocalPosition: {x: 0, y: 2.06, z: -2.24}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -46,18 +46,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RoachCamera
   Target: {fileID: 5716341565837763216}
-  DefaultDistance: 5
-  DefaultHeight: 2
-  WallClimbDistance: 10
+  DefaultDistance: 1
+  DefaultHeight: 0.5
+  WallClimbDistance: 3
   WallClimbHeight: 0
-  CarryingBaseDistance: 4
-  CarryingBaseHeight: 2.5
+  CarryingBaseDistance: 1
+  CarryingBaseHeight: 0.5
   CarryingDistanceMultiplier: 0.6
   CarryingHeightMultiplier: 0.3
   MouseSensitivity: 0.05
   ZoomSpeed: 2
-  MinDistance: 5
-  MaxDistance: 25
+  MinDistance: 0.5
+  MaxDistance: 5
   RotationSmoothTime: 0.1
   MinPitch: -60
   MaxPitch: 60
@@ -293,8 +293,8 @@ RectTransform:
   m_GameObject: {fileID: 2407460229403786492}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 1.77}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.05, y: 0.05, z: 0.05}
+  m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 6093251449526807782}
   - {fileID: 3276663380231456227}
@@ -545,7 +545,7 @@ MonoBehaviour:
   _directChildren: []
   _networkRules: {fileID: 11400000, guid: d8799083b96579a42b8b2d03e4ceae98, type: 2}
   _visitiblityRules: {fileID: 11400000, guid: 8f014a5bd8dc68646a2a3c0b18c5bbd8, type: 2}
-  _walkSpeed: 30
+  _walkSpeed: 3
   _sprintMultiplier: 1.5
   _airControlMultiplier: 0.6
   _acceleration: 40
@@ -555,8 +555,8 @@ MonoBehaviour:
   _rotateTowardsMovement: 1
   _strafeRotationSpeed: 8
   _cameraPivot: {fileID: 4031161244650324719}
-  _cameraDistance: 5
-  _cameraHeight: 2
+  _cameraDistance: 0.5
+  _cameraHeight: 0.5
   _cameraFollowSpeed: 10
   _cameraRotationSpeed: 8
   _cameraSensitivity: {x: 2, y: 2}
@@ -590,10 +590,6 @@ MonoBehaviour:
     m_Bits: 512
   pickupFeedbackPrefab: {fileID: 4282804885652951674, guid: 8ce9a902f5559f84fab2d23af246838a, type: 3}
   carryingFeedbackPrefab: {fileID: 3834762427110480492, guid: 4af4bba493838c945abc13629d20a5bd, type: 3}
-  _maxStress: 20
-  _stressSpeedReduction: 0.3
-  _stressCameraShakeIntensity: 1.5
-  _stressCameraShakeFrequency: 5
   _currentState: 0
   carriedObject: {fileID: 0}
 --- !u!65 &6797102666521832112
@@ -794,6 +790,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 971a5c6ad39a81c4b9c7c307dfe04188, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InventorySetSlot
+  _isSetup: 0
+  _prefabId: -2147483648
+  _componentIndex: -2147483648
+  _shouldBePooled: 0
+  _parent: {fileID: 0}
+  _invertedPathToNearestParent: 
+  _directChildren: []
+  _networkRules: {fileID: 0}
+  _visitiblityRules: {fileID: 0}
   slotPrefab: {fileID: 279452752479699063, guid: 86c51fbfbf1ba774c83e2e5d4e904ff8, type: 3}
   emptySprite: {fileID: 10917, guid: 0000000000000000f000000000000000, type: 0}
 --- !u!114 &203073907670086446
