@@ -20,6 +20,8 @@ public class RoachController : NetworkBehaviour
     [SerializeField] private float _rotationSmoothTime = 0.12f;
     [SerializeField] private bool _rotateTowardsMovement = true;
     [SerializeField] private float _strafeRotationSpeed = 8f;
+    [SerializeField] private float _wallRotationSpeed = 5f;
+    [SerializeField] private float _alignSpeed = 8f;
 
     [Header("Camera")]
     [SerializeField] private Transform _cameraPivot;
@@ -41,22 +43,23 @@ public class RoachController : NetworkBehaviour
 
     [Header("Wall Crawl")]
     [SerializeField] private float _wallCheckDistance = 1f;
-    [SerializeField] private float _alignSpeed = 8f;
     [SerializeField] private float _maxWallAngle = 130f;
-    [SerializeField] private LayerMask _climbableLayers = ~0;
-    [SerializeField] private float _wallRotationSpeed = 5f;
+    [SerializeField] private float _minWallAngle = 10f;
+    // FIX : délai avant de transitionner vers WallClimbing (évite les blocages sur arêtes)
+    [SerializeField] private float _wallTransitionDelay = 0.15f;
+    // FIX : dot product minimum — filtre les normales d'arête fuyantes
+    [SerializeField] private float _wallNormalDotThreshold = 0.3f;
 
     [Header("Ground Check")]
     [SerializeField] private Transform _groundCheck;
     [SerializeField] private float _groundCheckDistance = 0.5f;
-    [SerializeField] private LayerMask _groundLayers = ~0;
 
     [Header("Network Animation")]
     [SerializeField] private NetworkAnimator _networkAnimator;
 
     [Header("Carrying Settings")]
     [SerializeField] private float _maxCarryWeightSlowdown = 0.5f;
-    private float _currentWeight = 0f;
+    private float _currentWeight;
     private float _baseWalkSpeed;
 
     [Header("Item Pickup / Drop")]
@@ -65,7 +68,7 @@ public class RoachController : NetworkBehaviour
     [SerializeField] private float _pickupRange = 3f;
     [SerializeField] private LayerMask _itemLayer = ~0;
     private GameObject _carriedItem;
-    private bool _isCarryingObject = false;
+    private bool _isCarryingObject;
     private NetworkIdentity _carriedItemNetworkId;
 
     [Header("UI Feedback")]
@@ -75,29 +78,38 @@ public class RoachController : NetworkBehaviour
     private GameObject pickupFeedbackInstance;
     private GameObject carryingFeedbackInstance;
     private Canvas mainCanvas;
-    private bool isInPickupRange = false;
+    private bool isInPickupRange;
 
-    // Core components
+    // ── Core components ──────────────────────────────────────────────
     private Rigidbody _rb;
+
+    // Inputs
     private Vector2 _moveInput;
     private Vector2 _lookInput;
     private bool _jumpPressed;
     private bool _jumpHeld;
     private bool _sprintHeld;
+
+    // Jump timers
     private float _nextJumpTime;
     private float _lastGroundedTime;
     private float _jumpBufferTimer;
 
-    // Rotation smoothing
-    private float _currentRotationVelocity;
-    private float _targetRotation;
+    // Camera angles
     private float _cameraYaw;
     private float _cameraPitch;
 
     public PlayerState _currentState = PlayerState.Grounded;
     private Vector3 _currentSurfaceNormal = Vector3.up;
+
+    // FIX : timer de transition Grounded → WallClimbing
+    private float _wallTransitionTimer = 0f;
+
     public GameObject carriedObject;
 
+    // ─────────────────────────────────────────────────────────────────
+    //  Network spawn
+    // ─────────────────────────────────────────────────────────────────
     protected override void OnSpawned()
     {
         base.OnSpawned();
@@ -116,7 +128,7 @@ public class RoachController : NetworkBehaviour
 
         if (!_cameraPivot)
         {
-            GameObject camObj = new GameObject("CameraPivot");
+            var camObj = new GameObject("CameraPivot");
             camObj.transform.SetParent(null);
             _cameraPivot = camObj.transform;
         }
@@ -131,6 +143,9 @@ public class RoachController : NetworkBehaviour
         Cursor.visible = false;
     }
 
+    // ─────────────────────────────────────────────────────────────────
+    //  Unity lifecycle
+    // ─────────────────────────────────────────────────────────────────
     private void Awake()
     {
         _rb = GetComponent<Rigidbody>();
@@ -139,7 +154,7 @@ public class RoachController : NetworkBehaviour
 
         if (_groundCheck == null)
         {
-            GameObject g = new GameObject("GroundCheck");
+            var g = new GameObject("GroundCheck");
             g.transform.SetParent(transform);
             g.transform.localPosition = Vector3.zero;
             _groundCheck = g.transform;
@@ -149,66 +164,8 @@ public class RoachController : NetworkBehaviour
     private void Start()
     {
         _baseWalkSpeed = _walkSpeed;
-
-        // Seulement le OWNER initialise les feedbacks
         if (isOwner)
-        {
             StartCoroutine(FindCanvasWithRetry());
-        }
-    }
-
-    private IEnumerator FindCanvasWithRetry()
-    {
-        int maxRetries = 50; // Max 5 secondes
-        int retryCount = 0;
-
-        while (retryCount < maxRetries)
-        {
-            // Cherche d'abord par tag
-            GameObject canvasGO = GameObject.FindWithTag("Canvas");
-            Canvas canvas = null;
-
-            if (canvasGO != null)
-            {
-                canvas = canvasGO.GetComponent<Canvas>();
-            }
-
-            // Fallback : FindObjectOfType
-            if (canvas == null)
-            {
-                canvas = FindObjectOfType<Canvas>();
-            }
-
-            if (canvas != null && canvas.gameObject.activeInHierarchy)
-            {
-                mainCanvas = canvas;
-                SetupFeedbacks();
-                Debug.Log($"[RoachController] Canvas trouvé après {retryCount + 1} tentative(s)");
-                yield break;
-            }
-
-            retryCount++;
-            yield return new WaitForSeconds(0.1f);
-        }
-
-        Debug.LogError("[RoachController] Canvas introuvable après 5 secondes!");
-    }
-
-    private void SetupFeedbacks()
-    {
-        if (mainCanvas == null) return;
-
-        if (pickupFeedbackPrefab != null)
-        {
-            pickupFeedbackInstance = Instantiate(pickupFeedbackPrefab, mainCanvas.transform);
-            pickupFeedbackInstance.SetActive(false);
-        }
-
-        if (carryingFeedbackPrefab != null)
-        {
-            carryingFeedbackInstance = Instantiate(carryingFeedbackPrefab, mainCanvas.transform);
-            carryingFeedbackInstance.SetActive(false);
-        }
     }
 
     private void Update()
@@ -224,16 +181,12 @@ public class RoachController : NetworkBehaviour
 
     private void FixedUpdate()
     {
-        DetectWallOrFloor();
+        DetectSurface();
         UpdateState();
-
-        Vector3 desiredVelocity = CalculateDesiredVelocity();
-        ApplyMovement(desiredVelocity);
-
+        ApplyMovement(CalculateDesiredVelocity());
         HandleRotation();
         HandleOrientation();
         ApplyGravityAndJump();
-
         UpdateAnimations();
         CheckPickupRangeFeedback();
         UpdateCarryingFeedback();
@@ -244,36 +197,118 @@ public class RoachController : NetworkBehaviour
         HandleCameraMovement();
     }
 
-    private void CheckPickupRangeFeedback()
+    // ─────────────────────────────────────────────────────────────────
+    //  Surface detection
+    //  FIX : filtre les normales d'arête via dot product (_wallNormalDotThreshold)
+    // ─────────────────────────────────────────────────────────────────
+    private void DetectSurface()
     {
-        if (_pickupOrigin == null) _pickupOrigin = transform;
+        if (_isCarryingObject) return;
 
-        bool wasInRange = isInPickupRange;
-        isInPickupRange = Physics.Raycast(_pickupOrigin.position, _pickupOrigin.forward, _pickupRange, _itemLayer);
+        Vector3[] dirs = { transform.forward, -transform.forward, transform.right, -transform.right };
+        bool wallFound = false;
 
-        if (pickupFeedbackInstance != null)
+        foreach (var dir in dirs)
         {
-            if (isInPickupRange && !wasInRange)
-                pickupFeedbackInstance.SetActive(true);
-            else if (!isInPickupRange && wasInRange)
-                pickupFeedbackInstance.SetActive(false);
+            if (Physics.Raycast(transform.position, dir, out RaycastHit hit, _wallCheckDistance))
+            {
+                float angle = Vector3.Angle(hit.normal, Vector3.up);
+
+                // FIX : la normale doit pointer vers le joueur (filtre les arêtes fuyantes)
+                float dotBack = Vector3.Dot(hit.normal, -dir);
+                if (dotBack < _wallNormalDotThreshold) continue;
+
+                if (angle > _minWallAngle && angle < _maxWallAngle)
+                {
+                    _currentSurfaceNormal = hit.normal;
+                    _currentState = PlayerState.WallClimbing;
+                    wallFound = true;
+                    break;
+                }
+            }
+        }
+
+        if (!wallFound)
+        {
+            if (_currentState == PlayerState.WallClimbing)
+            {
+                if (Physics.Raycast(_groundCheck.position, -_currentSurfaceNormal, out RaycastHit floorHit, 1f))
+                    _currentSurfaceNormal = floorHit.normal;
+                else
+                {
+                    _currentState = PlayerState.Falling;
+                    _currentSurfaceNormal = Vector3.up;
+                }
+            }
+            else
+            {
+                if (Physics.Raycast(_groundCheck.position, Vector3.down, out RaycastHit groundHit, _groundCheckDistance))
+                    _currentSurfaceNormal = groundHit.normal;
+                else
+                    _currentSurfaceNormal = Vector3.up;
+            }
         }
     }
 
-    private void UpdateCarryingFeedback()
+    // ─────────────────────────────────────────────────────────────────
+    //  State machine
+    //  FIX : délai _wallTransitionDelay avant Grounded → WallClimbing
+    // ─────────────────────────────────────────────────────────────────
+    private void UpdateState()
     {
-        if (carryingFeedbackInstance == null) return;
+        bool grounded = (_currentState != PlayerState.WallClimbing) && IsGroundedRaycast();
+        bool wallDetected = (_currentState != PlayerState.WallClimbing) && IsWallDetected();
 
-        if (_carriedItem != null && !carryingFeedbackInstance.activeSelf)
-            carryingFeedbackInstance.SetActive(true);
-        else if (_carriedItem == null && carryingFeedbackInstance.activeSelf)
-            carryingFeedbackInstance.SetActive(false);
+        switch (_currentState)
+        {
+            case PlayerState.Grounded:
+                if (!grounded)
+                {
+                    // FIX : on accumule le timer avant de tomber (anti-blocage sur microarête)
+                    _wallTransitionTimer += Time.fixedDeltaTime;
+                    if (_wallTransitionTimer > _wallTransitionDelay)
+                    {
+                        _wallTransitionTimer = 0f;
+                        _currentState = PlayerState.Falling;
+                    }
+                }
+                else
+                {
+                    _wallTransitionTimer = 0f;
+                    if (wallDetected && _carriedItem == null)
+                        _currentState = PlayerState.WallClimbing;
+                }
+                break;
+
+            case PlayerState.Carrying:
+                if (!grounded) _currentState = PlayerState.Falling;
+                break;
+
+            case PlayerState.Jumping:
+                if (_rb.linearVelocity.y < 0) _currentState = PlayerState.Falling;
+                break;
+
+            case PlayerState.Falling:
+                _wallTransitionTimer = 0f;
+                if (grounded) _currentState = PlayerState.Grounded;
+                else if (_jumpHeld) _currentState = PlayerState.Gliding;
+                else if (wallDetected && _carriedItem == null) _currentState = PlayerState.WallClimbing;
+                break;
+
+            case PlayerState.Gliding:
+                _wallTransitionTimer = 0f;
+                if (grounded) _currentState = PlayerState.Grounded;
+                else if (!_jumpHeld) _currentState = PlayerState.Falling;
+                break;
+        }
     }
 
+    // ─────────────────────────────────────────────────────────────────
+    //  Movement
+    // ─────────────────────────────────────────────────────────────────
     private Vector3 CalculateDesiredVelocity()
     {
-        if (_moveInput.sqrMagnitude < 0.01f)
-            return Vector3.zero;
+        if (_moveInput.sqrMagnitude < 0.01f) return Vector3.zero;
 
         Vector3 moveDir;
 
@@ -281,24 +316,18 @@ public class RoachController : NetworkBehaviour
         {
             Vector3 wallUp = -Vector3.Cross(_currentSurfaceNormal, transform.right).normalized;
             Vector3 wallRight = -Vector3.Cross(wallUp, _currentSurfaceNormal).normalized;
-
             moveDir = (wallUp * _moveInput.y + wallRight * _moveInput.x).normalized;
         }
         else
         {
-            Vector3 cameraForward = _cameraPivot.forward;
-            Vector3 cameraRight = _cameraPivot.right;
-
-            cameraForward = Vector3.ProjectOnPlane(cameraForward, _currentSurfaceNormal).normalized;
-            cameraRight = Vector3.ProjectOnPlane(cameraRight, _currentSurfaceNormal).normalized;
-
-            moveDir = (cameraForward * _moveInput.y + cameraRight * _moveInput.x).normalized;
+            Vector3 camFwd = Vector3.ProjectOnPlane(_cameraPivot.forward, _currentSurfaceNormal).normalized;
+            Vector3 camRight = Vector3.ProjectOnPlane(_cameraPivot.right, _currentSurfaceNormal).normalized;
+            moveDir = (camFwd * _moveInput.y + camRight * _moveInput.x).normalized;
         }
 
         float speed = _walkSpeed;
         if (_sprintHeld && _currentState == PlayerState.Grounded && _carriedItem == null)
             speed *= _sprintMultiplier;
-
         if (_currentState != PlayerState.Grounded && _currentState != PlayerState.WallClimbing)
             speed *= _airControlMultiplier;
 
@@ -310,49 +339,73 @@ public class RoachController : NetworkBehaviour
         Vector3 currentVel = _rb.linearVelocity;
         Vector3 horizontalVel = Vector3.ProjectOnPlane(currentVel, _currentSurfaceNormal);
 
+        float lerpFactor = (_currentState == PlayerState.Grounded) ? 0.15f : 0.1f;
         float accel = desiredVelocity.sqrMagnitude > 0.01f ? _acceleration : _deceleration;
 
-        float lerpFactor = (_currentState == PlayerState.Grounded) ? 0.15f : 0.1f;
         Vector3 smoothedVel = Vector3.Lerp(horizontalVel, desiredVelocity, lerpFactor * accel * Time.fixedDeltaTime);
-
         _rb.linearVelocity = smoothedVel + _currentSurfaceNormal * Vector3.Dot(currentVel, _currentSurfaceNormal);
     }
 
+    // ─────────────────────────────────────────────────────────────────
+    //  Rotation & orientation
+    // ─────────────────────────────────────────────────────────────────
     private void HandleRotation()
     {
         if (_moveInput.sqrMagnitude < 0.01f) return;
 
-        Vector3 targetDirection;
+        Vector3 targetDir;
 
         if (_currentState == PlayerState.WallClimbing)
         {
             Vector3 wallUp = -Vector3.Cross(_currentSurfaceNormal, transform.right).normalized;
             Vector3 wallRight = -Vector3.Cross(wallUp, _currentSurfaceNormal).normalized;
+            targetDir = (wallUp * _moveInput.y + wallRight * _moveInput.x).normalized;
 
-            targetDirection = (wallUp * _moveInput.y + wallRight * _moveInput.x).normalized;
-
-            if (targetDirection.sqrMagnitude > 0.01f)
+            if (targetDir.sqrMagnitude > 0.01f)
             {
-                Quaternion targetRotation = Quaternion.LookRotation(targetDirection, _currentSurfaceNormal);
-                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, _wallRotationSpeed * Time.fixedDeltaTime);
+                Quaternion rot = Quaternion.LookRotation(targetDir, _currentSurfaceNormal);
+                transform.rotation = Quaternion.Slerp(transform.rotation, rot, _wallRotationSpeed * Time.fixedDeltaTime);
             }
         }
         else
         {
-            Vector3 cameraForward = Vector3.ProjectOnPlane(_cameraPivot.forward, _currentSurfaceNormal).normalized;
-            Vector3 cameraRight = Vector3.ProjectOnPlane(_cameraPivot.right, _currentSurfaceNormal).normalized;
+            Vector3 camFwd = Vector3.ProjectOnPlane(_cameraPivot.forward, _currentSurfaceNormal).normalized;
+            Vector3 camRight = Vector3.ProjectOnPlane(_cameraPivot.right, _currentSurfaceNormal).normalized;
+            targetDir = (camFwd * _moveInput.y + camRight * _moveInput.x).normalized;
 
-            targetDirection = (cameraForward * _moveInput.y + cameraRight * _moveInput.x).normalized;
-
-            if (targetDirection.sqrMagnitude > 0.01f)
+            if (targetDir.sqrMagnitude > 0.01f)
             {
-                Quaternion targetRotation = Quaternion.LookRotation(targetDirection, _currentSurfaceNormal);
-                float rotSpeed = (_moveInput.x != 0 && Mathf.Abs(_moveInput.y) < 0.5f) ? _strafeRotationSpeed : _rotationSpeed;
-                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotSpeed * Time.fixedDeltaTime);
+                Quaternion rot = Quaternion.LookRotation(targetDir, _currentSurfaceNormal);
+                float rotSpeed = (_moveInput.x != 0 && Mathf.Abs(_moveInput.y) < 0.5f)
+                                   ? _strafeRotationSpeed : _rotationSpeed;
+                transform.rotation = Quaternion.Slerp(transform.rotation, rot, rotSpeed * Time.fixedDeltaTime);
             }
         }
     }
 
+    // FIX : alignSpeed dynamique — ralenti quand la normale change brusquement (arête)
+    private void HandleOrientation()
+    {
+        float normalDelta = Vector3.Angle(transform.up, _currentSurfaceNormal);
+        float dynamicAlignSpeed = normalDelta > 45f
+            ? _alignSpeed * 0.3f   // transition douce sur arête
+            : _alignSpeed;
+
+        Quaternion alignToSurface = Quaternion.FromToRotation(transform.up, _currentSurfaceNormal) * transform.rotation;
+
+        Vector3 projFwd = Vector3.ProjectOnPlane(transform.forward, _currentSurfaceNormal).normalized;
+        if (projFwd.sqrMagnitude > 0.001f)
+        {
+            Quaternion lookFwd = Quaternion.LookRotation(projFwd, _currentSurfaceNormal);
+            alignToSurface = Quaternion.Slerp(alignToSurface, lookFwd, 0.5f);
+        }
+
+        transform.rotation = Quaternion.Slerp(transform.rotation, alignToSurface, dynamicAlignSpeed * Time.fixedDeltaTime);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Physics — gravité & saut
+    // ─────────────────────────────────────────────────────────────────
     private void ApplyGravityAndJump()
     {
         Vector3 gravityDir = -_currentSurfaceNormal;
@@ -363,13 +416,10 @@ public class RoachController : NetworkBehaviour
 
         if (_jumpBufferTimer > 0 && canJump && Time.time >= _nextJumpTime && _carriedItem == null)
         {
-            if (_currentState == PlayerState.Grounded || (Time.time - _lastGroundedTime) <= _coyoteTime)
-            {
-                _rb.linearVelocity = transform.up * _jumpForce;
-                _currentState = PlayerState.Jumping;
-                _jumpBufferTimer = 0f;
-                _nextJumpTime = Time.time + _jumpCooldown;
-            }
+            _rb.linearVelocity = transform.up * _jumpForce;
+            _currentState = PlayerState.Jumping;
+            _jumpBufferTimer = 0f;
+            _nextJumpTime = Time.time + _jumpCooldown;
         }
         else if (_jumpPressed && _currentState == PlayerState.WallClimbing && _carriedItem == null)
         {
@@ -393,6 +443,9 @@ public class RoachController : NetworkBehaviour
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────
+    //  Camera
+    // ─────────────────────────────────────────────────────────────────
     private void HandleCameraMovement()
     {
         if (!_cameraPivot) return;
@@ -401,130 +454,19 @@ public class RoachController : NetworkBehaviour
         _cameraPitch -= _lookInput.y * _cameraSensitivity.y;
         _cameraPitch = Mathf.Clamp(_cameraPitch, _cameraPitchLimits.x, _cameraPitchLimits.y);
 
-        Quaternion targetCameraRotation = Quaternion.Euler(_cameraPitch, _cameraYaw, 0f);
-        _cameraPivot.rotation = Quaternion.Slerp(
-            _cameraPivot.rotation,
-            targetCameraRotation,
-            _cameraRotationSpeed * Time.deltaTime
-        );
+        Quaternion targetRot = Quaternion.Euler(_cameraPitch, _cameraYaw, 0f);
+        _cameraPivot.rotation = Quaternion.Slerp(_cameraPivot.rotation, targetRot, _cameraRotationSpeed * Time.deltaTime);
 
-        Vector3 targetPosition = transform.position
+        Vector3 targetPos = transform.position
             - _cameraPivot.forward * _cameraDistance
             + _currentSurfaceNormal * _cameraHeight;
 
-        _cameraPivot.position = Vector3.Lerp(
-            _cameraPivot.position,
-            targetPosition,
-            _cameraFollowSpeed * Time.deltaTime
-        );
+        _cameraPivot.position = Vector3.Lerp(_cameraPivot.position, targetPos, _cameraFollowSpeed * Time.deltaTime);
     }
 
-    private void DetectWallOrFloor()
-    {
-        if (!_isCarryingObject)
-        {
-            RaycastHit hit;
-            Vector3[] directions = { transform.forward, -transform.forward, transform.right, -transform.right };
-            bool wallFound = false;
-
-            foreach (var dir in directions)
-            {
-                if (Physics.Raycast(transform.position, dir, out hit, _wallCheckDistance, _climbableLayers))
-                {
-                    float angle = Vector3.Angle(hit.normal, Vector3.up);
-                    if (angle > 10f && angle < _maxWallAngle)
-                    {
-                        _currentSurfaceNormal = hit.normal;
-                        _currentState = PlayerState.WallClimbing;
-                        wallFound = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!wallFound)
-            {
-                if (_currentState == PlayerState.WallClimbing)
-                {
-                    if (Physics.Raycast(_groundCheck.position, -_currentSurfaceNormal, out hit, 1f, _climbableLayers))
-                        _currentSurfaceNormal = hit.normal;
-                    else
-                    {
-                        _currentState = PlayerState.Falling;
-                        _currentSurfaceNormal = Vector3.up;
-                    }
-                }
-                else
-                {
-                    if (Physics.Raycast(_groundCheck.position, Vector3.down, out hit, _groundCheckDistance, _groundLayers))
-                        _currentSurfaceNormal = hit.normal;
-                    else
-                        _currentSurfaceNormal = Vector3.up;
-                }
-            }
-        }
-    }
-
-    private void UpdateState()
-    {
-        bool wallDetected = (_currentState != PlayerState.WallClimbing) && IsWallDetected();
-        bool grounded = (_currentState != PlayerState.WallClimbing) && IsGroundedRaycast();
-
-        switch (_currentState)
-        {
-            case PlayerState.Grounded:
-                if (!grounded) _currentState = PlayerState.Falling;
-                else if (wallDetected && _carriedItem == null) _currentState = PlayerState.WallClimbing;
-                break;
-            case PlayerState.Carrying:
-                if (!grounded) _currentState = PlayerState.Falling;
-                break;
-            case PlayerState.Jumping:
-                if (_rb.linearVelocity.y < 0) _currentState = PlayerState.Falling;
-                break;
-            case PlayerState.Falling:
-                if (grounded) _currentState = PlayerState.Grounded;
-                else if (_jumpHeld) _currentState = PlayerState.Gliding;
-                else if (wallDetected && _carriedItem == null) _currentState = PlayerState.WallClimbing;
-                break;
-            case PlayerState.Gliding:
-                if (grounded) _currentState = PlayerState.Grounded;
-                else if (!_jumpHeld) _currentState = PlayerState.Falling;
-                break;
-        }
-    }
-
-    private bool IsGroundedRaycast()
-    {
-        return Physics.Raycast(_groundCheck.position, Vector3.down, _groundCheckDistance, _groundLayers);
-    }
-
-    private bool IsWallDetected()
-    {
-        RaycastHit hit;
-        Vector3[] directions = { transform.forward, -transform.forward, transform.right, -transform.right };
-        foreach (var dir in directions)
-        {
-            if (Physics.Raycast(transform.position, dir, out hit, _wallCheckDistance, _climbableLayers))
-                return true;
-        }
-        return false;
-    }
-
-    private void HandleOrientation()
-    {
-        Quaternion alignToSurface = Quaternion.FromToRotation(transform.up, _currentSurfaceNormal) * transform.rotation;
-
-        Vector3 projectedForward = Vector3.ProjectOnPlane(transform.forward, _currentSurfaceNormal).normalized;
-        if (projectedForward.sqrMagnitude > 0.001f)
-        {
-            Quaternion lookForward = Quaternion.LookRotation(projectedForward, _currentSurfaceNormal);
-            alignToSurface = Quaternion.Slerp(alignToSurface, lookForward, 0.5f);
-        }
-
-        transform.rotation = Quaternion.Slerp(transform.rotation, alignToSurface, _alignSpeed * Time.fixedDeltaTime);
-    }
-
+    // ─────────────────────────────────────────────────────────────────
+    //  Input callbacks
+    // ─────────────────────────────────────────────────────────────────
     public void OnMove(InputAction.CallbackContext ctx)
     {
         _moveInput = ctx.ReadValue<Vector2>();
@@ -537,10 +479,8 @@ public class RoachController : NetworkBehaviour
 
     public void OnSprint(InputAction.CallbackContext ctx)
     {
-        if (ctx.started)
-            _sprintHeld = true;
-        else if (ctx.canceled)
-            _sprintHeld = false;
+        if (ctx.started) _sprintHeld = true;
+        else if (ctx.canceled) _sprintHeld = false;
     }
 
     public void OnJump(InputAction.CallbackContext ctx)
@@ -556,56 +496,35 @@ public class RoachController : NetworkBehaviour
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────
+    //  Pickup / Drop
+    // ─────────────────────────────────────────────────────────────────
     public void OnPickUp(InputAction.CallbackContext ctx)
     {
         if (!ctx.started) return;
-
-        if (_carriedItem != null)
-        {
-            Debug.Log("Already carrying something, cannot pick up another item.");
-            return;
-        }
-
-        if (_pickupOrigin == null)
-            _pickupOrigin = transform;
+        if (_carriedItem != null) return;
+        if (_pickupOrigin == null) _pickupOrigin = transform;
 
         Ray ray = new Ray(_pickupOrigin.position, _pickupOrigin.forward);
-        Debug.DrawRay(ray.origin, ray.direction * _pickupRange, Color.green, 1f);
 
         if (Physics.Raycast(ray, out RaycastHit hit, _pickupRange, _itemLayer))
         {
             int hitLayerMask = 1 << hit.collider.gameObject.layer;
-
             if ((_itemLayer.value & hitLayerMask) != 0)
-            {
-                Debug.Log("Picked up item on layer: " + LayerMask.LayerToName(hit.collider.gameObject.layer));
                 PickUpItemServerRPC(hit.collider.gameObject);
-            }
-            else
-            {
-                Debug.Log("Hit object not on valid pickup layer: " + hit.collider.name);
-            }
-        }
-        else
-        {
-            Debug.Log("No item hit by raycast.");
         }
     }
 
     [ServerRpc]
     private void PickUpItemServerRPC(GameObject item)
     {
-        if (item == null)
-            return;
-
-        PickUpItemObserverRPC(item);
+        if (item != null) PickUpItemObserverRPC(item);
     }
 
     [ObserversRpc]
     private void PickUpItemObserverRPC(GameObject item)
     {
-        if (item == null)
-            return;
+        if (item == null) return;
 
         carriedObject = item;
         _isCarryingObject = true;
@@ -619,23 +538,18 @@ public class RoachController : NetworkBehaviour
 
         ApplyCarrySpeedModifier();
 
-        Renderer itemRenderer = _carriedItem.GetComponent<Renderer>();
         Vector3 offset = Vector3.zero;
-
-        if (itemRenderer != null)
+        if (_carriedItem.TryGetComponent(out Renderer rend))
         {
             _currentState = PlayerState.Carrying;
-            float yOffset = itemRenderer.bounds.extents.y + 0.5f;
-            float zOffset = 0.2f;
-            offset = new Vector3(0, yOffset, zOffset);
+            offset = new Vector3(0f, rend.bounds.extents.y + 0.5f, 0.2f);
         }
 
         _carriedItem.transform.SetParent(_transportPoint);
         _carriedItem.transform.localPosition = offset;
         _carriedItem.transform.localRotation = Quaternion.identity;
 
-        Rigidbody rb = _carriedItem.GetComponent<Rigidbody>();
-        if (rb != null)
+        if (_carriedItem.TryGetComponent(out Rigidbody rb))
         {
             rb.isKinematic = true;
             rb.detectCollisions = false;
@@ -644,30 +558,13 @@ public class RoachController : NetworkBehaviour
         _carriedItemNetworkId = item.GetComponent<NetworkIdentity>();
     }
 
-    public void PickUpItem(GameObject item)
-    {
-        PickUpItemServerRPC(item);
-    }
-
     public void OnDrop(InputAction.CallbackContext ctx)
     {
-        if (!ctx.started) return;
-
-        if (_carriedItem == null)
-        {
-            Debug.Log("Nothing to drop.");
-            return;
-        }
-
-        Debug.Log("Dropped " + _carriedItem.name);
+        if (!ctx.started || _carriedItem == null) return;
         DropItemServerRPC();
     }
 
-    [ServerRpc]
-    private void DropItemServerRPC()
-    {
-        DropItemObserverRPC();
-    }
+    [ServerRpc] private void DropItemServerRPC() => DropItemObserverRPC();
 
     [ObserversRpc]
     private void DropItemObserverRPC()
@@ -675,8 +572,8 @@ public class RoachController : NetworkBehaviour
         if (_carriedItem == null) return;
 
         _isCarryingObject = false;
-        InventoryManager inventory = GetComponent<InventoryManager>();
-        if (inventory != null)
+
+        if (TryGetComponent(out InventoryManager inventory))
         {
             inventory.RemoveItem(_carriedItem.GetComponent<ItemPickUp>().itemData, 1);
             _carriedItem.GetComponent<ItemPickUp>().owner = null;
@@ -691,43 +588,33 @@ public class RoachController : NetworkBehaviour
         {
             rb.isKinematic = false;
             rb.detectCollisions = true;
-
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
 
-            Collider playerCollider = GetComponent<Collider>();
-            Collider itemCollider = _carriedItem.GetComponent<Collider>();
-            if (playerCollider != null && itemCollider != null)
-            {
-                Physics.IgnoreCollision(playerCollider, itemCollider, true);
-            }
+            Collider playerCol = GetComponent<Collider>();
+            Collider itemCol = _carriedItem.GetComponent<Collider>();
 
-            Rigidbody playerRb = GetComponent<Rigidbody>();
-            Vector3 playerVelocity = playerRb != null ? playerRb.linearVelocity : Vector3.zero;
+            if (playerCol && itemCol)
+                Physics.IgnoreCollision(playerCol, itemCol, true);
 
             Vector3 throwDir = (transform.forward + Vector3.up * Random.Range(1f, 2f)).normalized;
-            float throwForce = Random.Range(6f, 10f);
+            Vector3 playerVel = TryGetComponent(out Rigidbody prb) ? prb.linearVelocity : Vector3.zero;
 
-            rb.linearVelocity = playerVelocity;
-            rb.AddForce(throwDir * throwForce, ForceMode.Impulse);
+            rb.linearVelocity = playerVel;
+            rb.AddForce(throwDir * Random.Range(6f, 10f), ForceMode.Impulse);
             rb.AddTorque(Random.insideUnitSphere * Random.Range(2f, 5f), ForceMode.Impulse);
 
-            if (playerCollider != null && itemCollider != null)
-            {
-                StartCoroutine(ReenableCollision(playerCollider, itemCollider, 0.5f));
-            }
+            if (playerCol && itemCol)
+                StartCoroutine(ReenableCollision(playerCol, itemCol, 0.5f));
         }
 
-        Debug.Log("Dropped " + _carriedItem.name);
         _carriedItem = null;
         _carriedItemNetworkId = null;
         _currentState = PlayerState.Grounded;
     }
 
-    public void DropItem()
-    {
-        DropItemServerRPC();
-    }
+    public void PickUpItem(GameObject item) => PickUpItemServerRPC(item);
+    public void DropItem() => DropItemServerRPC();
 
     private IEnumerator ReenableCollision(Collider a, Collider b, float delay)
     {
@@ -735,32 +622,113 @@ public class RoachController : NetworkBehaviour
         Physics.IgnoreCollision(a, b, false);
     }
 
+    // ─────────────────────────────────────────────────────────────────
+    //  Helpers
+    // ─────────────────────────────────────────────────────────────────
+    private bool IsGroundedRaycast()
+        => Physics.Raycast(_groundCheck.position, Vector3.down, _groundCheckDistance);
+
+    private bool IsWallDetected()
+    {
+        Vector3[] dirs = { transform.forward, -transform.forward, transform.right, -transform.right };
+        foreach (var dir in dirs)
+        {
+            if (Physics.Raycast(transform.position, dir, out RaycastHit hit, _wallCheckDistance))
+            {
+                float angle = Vector3.Angle(hit.normal, Vector3.up);
+
+                // FIX : même filtre dot product que dans DetectSurface
+                float dotBack = Vector3.Dot(hit.normal, -dir);
+                if (dotBack < _wallNormalDotThreshold) continue;
+
+                if (angle > _minWallAngle && angle < _maxWallAngle)
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    private void ApplyCarrySpeedModifier()
+    {
+        float weightFactor = Mathf.Clamp01(_currentWeight / 10f);
+        _walkSpeed = _baseWalkSpeed * (1f - weightFactor * _maxCarryWeightSlowdown);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Animations
+    // ─────────────────────────────────────────────────────────────────
     private void UpdateAnimations()
     {
         if (_networkAnimator == null) return;
 
-        bool carryingItem = _carriedItem != null;
-        _networkAnimator.SetBool("Item", carryingItem);
+        bool carrying = _carriedItem != null;
+        _networkAnimator.SetBool("Item", carrying);
 
         if (_currentState == PlayerState.WallClimbing)
         {
-            bool isRunningOnWall = _moveInput.sqrMagnitude > 0.01f && !carryingItem;
-            _networkAnimator.SetBool("Run", isRunningOnWall);
+            _networkAnimator.SetBool("Run", _moveInput.sqrMagnitude > 0.01f && !carrying);
             _networkAnimator.SetBool("Fly", false);
         }
         else
         {
-            bool isFlying = _currentState == PlayerState.Jumping ||
-                            _currentState == PlayerState.Falling ||
-                            _currentState == PlayerState.Gliding;
+            bool flying = _currentState == PlayerState.Jumping
+                        || _currentState == PlayerState.Falling
+                        || _currentState == PlayerState.Gliding;
+            bool running = _currentState == PlayerState.Grounded
+                        && _moveInput.sqrMagnitude > 0.01f && !carrying;
 
-            bool isRunning = _currentState == PlayerState.Grounded && _moveInput.sqrMagnitude > 0.01f && !carryingItem;
-
-            _networkAnimator.SetBool("Fly", isFlying);
-            _networkAnimator.SetBool("Run", isRunning);
+            _networkAnimator.SetBool("Fly", flying);
+            _networkAnimator.SetBool("Run", running);
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────
+    //  UI Feedbacks
+    // ─────────────────────────────────────────────────────────────────
+    private void CheckPickupRangeFeedback()
+    {
+        if (_pickupOrigin == null) _pickupOrigin = transform;
+        bool wasInRange = isInPickupRange;
+        isInPickupRange = Physics.Raycast(_pickupOrigin.position, _pickupOrigin.forward, _pickupRange, _itemLayer);
+
+        if (pickupFeedbackInstance != null)
+            pickupFeedbackInstance.SetActive(isInPickupRange);
+    }
+
+    private void UpdateCarryingFeedback()
+    {
+        if (carryingFeedbackInstance == null) return;
+        carryingFeedbackInstance.SetActive(_carriedItem != null);
+    }
+
+    private IEnumerator FindCanvasWithRetry()
+    {
+        for (int i = 0; i < 50; i++)
+        {
+            var go = GameObject.FindWithTag("Canvas");
+            var canvas = go != null ? go.GetComponent<Canvas>() : FindObjectOfType<Canvas>();
+
+            if (canvas != null && canvas.gameObject.activeInHierarchy)
+            {
+                mainCanvas = canvas;
+                SetupFeedbacks();
+                yield break;
+            }
+            yield return new WaitForSeconds(0.1f);
+        }
+        Debug.LogError("[RoachController] Canvas introuvable après 5 secondes !");
+    }
+
+    private void SetupFeedbacks()
+    {
+        if (mainCanvas == null) return;
+        if (pickupFeedbackPrefab != null) { pickupFeedbackInstance = Instantiate(pickupFeedbackPrefab, mainCanvas.transform); pickupFeedbackInstance.SetActive(false); }
+        if (carryingFeedbackPrefab != null) { carryingFeedbackInstance = Instantiate(carryingFeedbackPrefab, mainCanvas.transform); carryingFeedbackInstance.SetActive(false); }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Gizmos
+    // ─────────────────────────────────────────────────────────────────
     private void OnDrawGizmosSelected()
     {
         if (_groundCheck)
@@ -773,24 +741,18 @@ public class RoachController : NetworkBehaviour
         Gizmos.DrawLine(transform.position, transform.position + transform.forward * _wallCheckDistance);
         Gizmos.color = Color.red;
         Gizmos.DrawLine(transform.position, transform.position - transform.forward * _wallCheckDistance);
+        Gizmos.color = Color.magenta;
+        Gizmos.DrawLine(transform.position, transform.position + transform.right * _wallCheckDistance);
+        Gizmos.color = Color.blue;
+        Gizmos.DrawLine(transform.position, transform.position - transform.right * _wallCheckDistance);
 
-        Gizmos.color = Color.green;
         if (_pickupOrigin)
+        {
+            Gizmos.color = Color.green;
             Gizmos.DrawLine(_pickupOrigin.position, _pickupOrigin.position + _pickupOrigin.forward * _pickupRange);
+        }
     }
 
     public Collider GetCarriedCollider()
-    {
-        if (carriedObject != null)
-            return carriedObject.GetComponent<Collider>();
-        return null;
-    }
-
-    private void ApplyCarrySpeedModifier()
-    {
-        float weightFactor = Mathf.Clamp01(_currentWeight / 10f);
-        float slowdown = 1f - weightFactor * _maxCarryWeightSlowdown;
-
-        _walkSpeed = _baseWalkSpeed * slowdown;
-    }
+        => carriedObject != null ? carriedObject.GetComponent<Collider>() : null;
 }
