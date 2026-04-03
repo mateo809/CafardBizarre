@@ -144,6 +144,7 @@ public class RoachController : NetworkBehaviour
             g.transform.localPosition = Vector3.zero;
             _groundCheck = g.transform;
         }
+        StartCoroutine(BackendCaller.Instance.GetMe());
     }
 
     private void Start()
