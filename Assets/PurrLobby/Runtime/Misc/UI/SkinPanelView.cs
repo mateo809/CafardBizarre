@@ -2,8 +2,8 @@ using UnityEngine;
 
 namespace PurrLobby
 {
-    public class Skin : View
+    public class MainMenuView : View
     {
-        
+
     }
 }

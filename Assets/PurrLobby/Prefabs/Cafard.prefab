@@ -277,6 +277,7 @@ GameObject:
   - component: {fileID: 6317445930183475722}
   - component: {fileID: 203073907670086446}
   - component: {fileID: 8453728952278247290}
+  - component: {fileID: 4471156977146490475}
   m_Layer: 3
   m_Name: Cafard
   m_TagString: Untagged
@@ -548,13 +549,22 @@ MonoBehaviour:
   _walkSpeed: 10
   _sprintMultiplier: 1.5
   _airControlMultiplier: 0.6
-  _acceleration: 40
-  _deceleration: 15
+  _gravityStrength: 25
+  _glideGravity: 1
+  _glideFallRate: -1.5
+  _jumpForce: 15
+  _jumpCooldown: 1.5
+  _coyoteTime: 0.15
+  _jumpBufferTime: 0.2
+  collisionMask:
+    serializedVersion: 2
+    m_Bits: 0
+  _skinWidth: 0.02
+  _maxBounces: 6
+  _maxSlopeAngle: 80
+  _snapDownDist: 0.3
   _rotationSpeed: 10
-  _rotationSmoothTime: 0.12
-  _rotateTowardsMovement: 1
   _strafeRotationSpeed: 8
-  _wallRotationSpeed: 3
   _alignSpeed: 20
   _cameraPivot: {fileID: 4031161244650324719}
   _cameraDistance: 0.5
@@ -563,19 +573,6 @@ MonoBehaviour:
   _cameraRotationSpeed: 8
   _cameraSensitivity: {x: 2, y: 2}
   _cameraPitchLimits: {x: -30, y: 60}
-  _jumpForce: 15
-  _gravityStrength: 25
-  _glideGravity: 1
-  _glideFallRate: -1.5
-  _jumpCooldown: 1.5
-  _coyoteTime: 0.15
-  _jumpBufferTime: 0.2
-  _wallCheckDistance: 0.5
-  _maxWallAngle: 360
-  _minWallAngle: 10
-  _groundCheck: {fileID: 2632482486665589038}
-  _groundCheckDistance: 2
-  _networkAnimator: {fileID: 2779226584704775151}
   _maxCarryWeightSlowdown: 0.5
   _pickupOrigin: {fileID: 3367516834162662718}
   _transportPoint: {fileID: 3501638446019226370}
@@ -583,6 +580,7 @@ MonoBehaviour:
   _itemLayer:
     serializedVersion: 2
     m_Bits: 512
+  _networkAnimator: {fileID: 2779226584704775151}
   pickupFeedbackPrefab: {fileID: 4282804885652951674, guid: 8ce9a902f5559f84fab2d23af246838a, type: 3}
   carryingFeedbackPrefab: {fileID: 3834762427110480492, guid: 4af4bba493838c945abc13629d20a5bd, type: 3}
   _currentState: 0
@@ -615,7 +613,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2407460229403786492}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 817fe5016bd0a2a49a95b6eb338bb132, type: 3}
   m_Name: 
@@ -646,7 +644,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2407460229403786492}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5681fe548eb84304ea28a286062791f5, type: 3}
   m_Name: 
@@ -730,7 +728,7 @@ MonoBehaviour:
   _networkRules: {fileID: 0}
   _visitiblityRules: {fileID: 0}
   _animator: {fileID: 25748041417499695}
-  _ownerAuth: 1
+  _ownerAuth: 0
   _autoSyncParameters: 0
   _dontSyncParameters: []
 --- !u!114 &5823518533225857531
@@ -850,6 +848,27 @@ MonoBehaviour:
     _value: Player
     _ownerAuth: 0
     _sendIntervalInSeconds: 0
+--- !u!135 &4471156977146490475
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2407460229403786492}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Radius: 0.5
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &2472727129540226858
 GameObject:
   m_ObjectHideFlags: 0

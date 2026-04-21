@@ -77,37 +77,37 @@ public class RoachCamera : MonoBehaviour
 
         if (PlayerController != null)
         {
-            switch (PlayerController._currentState)
-            {
-                case RoachController.PlayerState.WallClimbing:
-                    _targetDistance = Mathf.Lerp(_targetDistance, MaxDistance, Time.deltaTime * SmoothTransitionSpeed);
-                    targetHeight = WallClimbHeight;
-                    break;
+            //switch (PlayerController._currentState)
+            //{
+            //    case RoachController.PlayerState.WallClimbing:
+            //        _targetDistance = Mathf.Lerp(_targetDistance, MaxDistance, Time.deltaTime * SmoothTransitionSpeed);
+            //        targetHeight = WallClimbHeight;
+            //        break;
 
-                case RoachController.PlayerState.Carrying:
-                    if (PlayerController.carriedObject != null)
-                    {
-                        Renderer objRenderer = PlayerController.carriedObject.GetComponent<Renderer>();
-                        float objectSize = objRenderer ? objRenderer.bounds.size.magnitude : 1f;
+            //    case RoachController.PlayerState.Carrying:
+            //        if (PlayerController.carriedObject != null)
+            //        {
+            //            Renderer objRenderer = PlayerController.carriedObject.GetComponent<Renderer>();
+            //            float objectSize = objRenderer ? objRenderer.bounds.size.magnitude : 1f;
 
-                        float adaptedDistance = CarryingBaseDistance + objectSize * CarryingDistanceMultiplier;
-                        float adaptedHeight = CarryingBaseHeight + objectSize * CarryingHeightMultiplier;
+            //            float adaptedDistance = CarryingBaseDistance + objectSize * CarryingDistanceMultiplier;
+            //            float adaptedHeight = CarryingBaseHeight + objectSize * CarryingHeightMultiplier;
 
-                        _targetDistance = Mathf.Clamp(adaptedDistance, MinDistance, MaxDistance);
-                        targetHeight = adaptedHeight;
-                    }
-                    else
-                    {
-                        _targetDistance = DefaultDistance;
-                        targetHeight = CarryingBaseHeight;
-                    }
-                    break;
+            //            _targetDistance = Mathf.Clamp(adaptedDistance, MinDistance, MaxDistance);
+            //            targetHeight = adaptedHeight;
+            //        }
+            //        else
+            //        {
+            //            _targetDistance = DefaultDistance;
+            //            targetHeight = CarryingBaseHeight;
+            //        }
+            //        break;
 
-                default:
-                    _targetDistance = DefaultDistance;
-                    targetHeight = DefaultHeight;
-                    break;
-            }
+            //    default:
+            //        _targetDistance = DefaultDistance;
+            //        targetHeight = DefaultHeight;
+            //        break;
+            //}
         }
 
         // Lerp vers les valeurs cibles
