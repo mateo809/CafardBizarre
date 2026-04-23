@@ -14,9 +14,10 @@ namespace OfficeAI
     {
         [Header("Détection")]
         [SerializeField] private float sightRange = 10f;
-        [SerializeField] private float sightAngle = 90f;
+        [SerializeField] private float sightAngle = 180f;
         [SerializeField] private LayerMask playerLayer;
         [SerializeField] private LayerMask obstacleLayer;
+        [SerializeField] private bool debugDetection = true;
 
         [Header("Cafard")]
         [SerializeField] private Transform cockroachTarget;
@@ -45,6 +46,11 @@ namespace OfficeAI
         [Header("Patrouille")]
         [SerializeField] private Transform[] patrolPoints;
         [SerializeField] private float waypointTolerance = 0.5f;
+        [SerializeField] private float pointWaitDuration = 1.5f;
+
+        [Header("Cycle Travail / Patrouille")]
+        [SerializeField] private float workPhaseDuration = 30f;
+        [SerializeField] private float patrolPhaseDuration = 20f;
 
         [Header("Tâches bureau")]
         [SerializeField] private float minTaskDuration = 3f;
@@ -58,6 +64,7 @@ namespace OfficeAI
         [Header("Recherche")]
         [SerializeField] private float searchDuration = 6f;
         [SerializeField] private float patrolSearchDuration = 4f;
+        [SerializeField] private float searchWaitDuration = 1f;
 
         [Header("Animation")]
         [SerializeField] private Transform lookTarget;
@@ -68,6 +75,9 @@ namespace OfficeAI
         [SerializeField] private string m_SitID = "Sit";
         [SerializeField] private string m_SprintID = "Sprint";
         [SerializeField] private string m_AttackID = "Attack";
+        [SerializeField] private string m_IdleRelaxedID = "Idle_Relaxed";
+        [SerializeField] private string m_IdleLookAroundID = "Idle_Look_Around";
+        [SerializeField] private string m_IdleID = "Idle";
         [SerializeField] private LookWeight m_LookWeight = new LookWeight(1f, 0.3f, 0.7f, 1f);
         [SerializeField] private float animFlow = 4.5f;
 
@@ -81,7 +91,9 @@ namespace OfficeAI
         private NetworkAnimator _netAnimator;
         private Blackboard _bb;
         private BTNode _tree;
+
         private Transform _playerTarget;
+        private Transform _currentTarget;
 
         private bool _isAttacking;
         private bool _hasVacuum;
@@ -102,9 +114,8 @@ namespace OfficeAI
         private bool _sitStarted;
         private bool _workingInterrupted;
 
-        private bool _inPostWorkCooldown = false;
-        private const float PostWorkCooldownSeconds = 2f;
-
+        private bool _inWorkPhase = true;
+        private float _phaseEndTime;
         private float _attackEndTime;
         private float _nextAttackTime;
         private float _searchEndTime;
@@ -124,7 +135,15 @@ namespace OfficeAI
         private float _workStateEnteredTime;
         private const float WorkStateTimeoutSeconds = 30f;
 
+        private float _waitUntilTime;
+        private bool _waitingAtPoint;
+        private int _currentPatrolIndex = -1;
+        private int _currentSearchPatrolIndex = -1;
+        private bool _pathSet;
+
         private static readonly int AttackHash = Animator.StringToHash("Attack");
+        private static readonly int IdleRelaxedHash = Animator.StringToHash("Idle_Relaxed");
+        private static readonly int IdleLookAroundHash = Animator.StringToHash("Idle_Look_Around");
 
         private void Awake()
         {
@@ -152,47 +171,71 @@ namespace OfficeAI
             if (assignedDesk != null)
                 _bb.Set(Blackboard.TargetPosition, assignedDesk.position);
 
+            _inWorkPhase = true;
+            _phaseEndTime = Time.time + workPhaseDuration;
             _tree = BuildTree();
         }
 
         private void Update()
         {
-            if (isServer)
+            if (isServer && _tree != null && _bb != null)
             {
-                if (_tree != null && _bb != null)
-                {
-                    CheckWorkingTimeout();
+                CheckWorkingTimeout();
+                UpdateWorkCycle();
+                DetectPlayer();
+                DetectCockroach();
 
-                    if (_workRoutine == null && !_postSitPause && !_inPostWorkCooldown)
-                    {
-                        DetectPlayer();
-                        DetectCockroach();
-                        _tree.Tick();
-                    }
+                if (_workRoutine == null && !_postSitPause)
+                    _tree.Tick();
 
-                    UpdateAnimatorTargets(_state.value);
-                }
+                UpdateAnimatorTargets(_state.value);
             }
 
             UpdateAnimator();
         }
 
+        private void UpdateWorkCycle()
+        {
+            if (_hasLastSeenPos || _goingToVacuum || _hasVacuum) return;
+
+            if (Time.time >= _phaseEndTime)
+            {
+                _inWorkPhase = !_inWorkPhase;
+                _phaseEndTime = Time.time + (_inWorkPhase ? workPhaseDuration : patrolPhaseDuration);
+
+                if (!_inWorkPhase)
+                {
+                    if (_workRoutine != null)
+                    {
+                        StopCoroutine(_workRoutine);
+                        _workRoutine = null;
+                        _sitStarted = false;
+                        _isFacingDesk = false;
+                        _postSitPause = false;
+                        if (_animator != null)
+                            _animator.SetBool(m_SitID, false);
+                        _agent.isStopped = false;
+                    }
+                    SetState(NPCState.Walking);
+                }
+            }
+        }
+
         private void CheckWorkingTimeout()
         {
-            if (_state.value == NPCState.Working)
-            {
-                if (_workRoutine == null && !_postSitPause)
-                {
-                    ForceResetWorkState();
-                    return;
-                }
+            if (_state.value != NPCState.Working) return;
 
-                if (_workRoutine != null && Time.time - _workStateEnteredTime > WorkStateTimeoutSeconds)
-                {
-                    StopCoroutine(_workRoutine);
-                    _workRoutine = null;
-                    ForceResetWorkState();
-                }
+            if (_workRoutine == null && !_postSitPause)
+            {
+                ForceResetWorkState();
+                return;
+            }
+
+            if (_workRoutine != null && Time.time - _workStateEnteredTime > WorkStateTimeoutSeconds)
+            {
+                StopCoroutine(_workRoutine);
+                _workRoutine = null;
+                ForceResetWorkState();
             }
         }
 
@@ -203,36 +246,42 @@ namespace OfficeAI
             _isGoingToDesk = false;
             _postSitPause = false;
             _workingInterrupted = false;
-            _inPostWorkCooldown = false;
 
             if (_animator != null)
                 _animator.SetBool(m_SitID, false);
 
             _agent.isStopped = false;
             _workRoutine = null;
-
             SetState(NPCState.Idle);
-        }
-
-        private void OnAnimatorIK(int layerIndex)
-        {
-            if (_animator == null || lookTarget == null) return;
-
-            _animator.SetLookAtWeight(m_LookWeight.weight, m_LookWeight.body, m_LookWeight.head, m_LookWeight.eyes);
-            _animator.SetLookAtPosition(lookTarget.position);
         }
 
         private void UpdateAnimator()
         {
             if (_animator == null) return;
 
+            bool isMoving = !_agent.isStopped &&
+                            _agent.hasPath &&
+                            _agent.remainingDistance > Mathf.Max(_agent.stoppingDistance, waypointTolerance) &&
+                            _agent.velocity.sqrMagnitude > 0.01f;
+
+            bool isIdle = !_isAttacking && !isMoving && _workRoutine == null && !_postSitPause && !_isFacingDesk;
+
+            bool isIdleRelaxed = isIdle &&
+                                 (_state.value == NPCState.Idle || _state.value == NPCState.Walking) &&
+                                 !_searchingLastSeen && !_patrollingSearch;
+
+            bool isIdleLookAround = isIdle &&
+                                    (_state.value == NPCState.Searching || _state.value == NPCState.Returning ||
+                                     _patrollingSearch || _searchingLastSeen);
+
             _animator.SetFloat(m_HorizontalID, _flowAxis.x);
             _animator.SetFloat(m_VerticalID, _flowAxis.y);
             _animator.SetFloat(m_StateID, Mathf.Clamp01(_flowState));
             _animator.SetBool(m_JumpID, _jumpState);
             _animator.SetBool(m_SitID, _sitStarted);
-            _animator.SetBool(m_SprintID, _isSprinting);
             _animator.SetBool(m_AttackID, _isAttacking);
+            _animator.SetBool(m_IdleRelaxedID, isIdleRelaxed);
+            _animator.SetBool(m_IdleLookAroundID, isIdleLookAround);
 
             if (_isAttacking || _workRoutine != null || _postSitPause || _isFacingDesk)
             {
@@ -256,7 +305,7 @@ namespace OfficeAI
                 _targetAxis = Vector2.zero;
                 _targetState = 1f;
                 _jumpState = false;
-                if (_playerTarget != null) lookTarget = _playerTarget;
+                if (_currentTarget != null) lookTarget = _currentTarget;
                 return;
             }
 
@@ -270,44 +319,12 @@ namespace OfficeAI
                 return;
             }
 
-            if (state == NPCState.Attacking)
-            {
-                _targetAxis = Vector2.zero;
-                _targetState = 1f;
-                _jumpState = false;
-                if (_playerTarget != null) lookTarget = _playerTarget;
-                else if (cockroachTarget != null) lookTarget = cockroachTarget;
-                return;
-            }
-
-            if (state == NPCState.Searching)
+            if (state == NPCState.Searching || state == NPCState.Returning || state == NPCState.Walking)
             {
                 _targetAxis = new Vector2(0f, 1f);
-                _targetState = 0.6f;
+                _targetState = state == NPCState.Walking ? 0.45f : (state == NPCState.Returning ? 0.7f : 0.6f);
                 _jumpState = false;
-                if (_playerTarget != null) lookTarget = _playerTarget;
-                else if (cockroachTarget != null) lookTarget = cockroachTarget;
-                return;
-            }
-
-            if (state == NPCState.Returning)
-            {
-                _targetAxis = new Vector2(0f, 1f);
-                _targetState = 0.7f;
-                _jumpState = false;
-                if (_playerTarget != null) lookTarget = _playerTarget;
-                else if (cockroachTarget != null) lookTarget = cockroachTarget;
-                return;
-            }
-
-            if (state == NPCState.Walking)
-            {
-                _targetAxis = new Vector2(0f, 1f);
-                _targetState = 0.45f;
-                _jumpState = false;
-                if (_playerTarget != null) lookTarget = _playerTarget;
-                else if (cockroachTarget != null) lookTarget = cockroachTarget;
-                else if (assignedDesk != null) lookTarget = assignedDesk;
+                if (_currentTarget != null) lookTarget = _currentTarget;
                 return;
             }
 
@@ -411,30 +428,17 @@ namespace OfficeAI
 
         private void DetectPlayer()
         {
-            if (_workRoutine != null || _postSitPause || _isFacingDesk)
-            {
-                if (PlayerOrCockroachVisible())
-                    InterruptWork();
-                else
-                    return;
-            }
-
             _playerTarget = null;
+            _currentTarget = null;
             if (_bb != null) _bb.Set(Blackboard.IsPlayerVisible, false);
 
-            var hits = Physics.OverlapSphere(transform.position, sightRange, playerLayer);
-            if (hits.Length == 0)
-            {
-                if (_hasLastSeenPos && !_searchingLastSeen && !_patrollingSearch && !_returningToLastSeen && _workRoutine == null && !_postSitPause)
-                    BeginSearch();
-                return;
-            }
-
-            Vector3 eyePos = transform.position + Vector3.up * 1.5f;
-            float halfAngle = sightAngle * 0.5f;
+            Collider[] hits = Physics.OverlapSphere(transform.position, sightRange, playerLayer);
+            if (debugDetection) Debug.Log($"[OfficerNPC] Overlap hits = {hits.Length}");
 
             Transform bestTarget = null;
             float bestDist = float.MaxValue;
+            Vector3 eyePos = transform.position + Vector3.up * 1.5f;
+            float halfAngle = sightAngle * 0.5f;
 
             foreach (var hit in hits)
             {
@@ -444,12 +448,11 @@ namespace OfficeAI
                 float dist = toTarget.magnitude;
                 if (dist < 0.001f) continue;
 
-                float angle = Vector3.Angle(transform.forward, toTarget);
+                float angle = Vector3.Angle(transform.forward, toTarget.normalized);
                 if (angle > halfAngle) continue;
 
-                Vector3 dir = toTarget / dist;
-                bool blocked = Physics.Raycast(eyePos, dir, dist, obstacleLayer, QueryTriggerInteraction.Ignore);
-                if (blocked) continue;
+                if (Physics.Raycast(eyePos, toTarget.normalized, dist, obstacleLayer, QueryTriggerInteraction.Ignore))
+                    continue;
 
                 if (dist < bestDist)
                 {
@@ -461,21 +464,38 @@ namespace OfficeAI
             if (bestTarget != null)
             {
                 _playerTarget = bestTarget;
-                _bb.Set(Blackboard.PlayerTransform, _playerTarget);
-                _bb.Set(Blackboard.IsPlayerVisible, true);
+                _currentTarget = bestTarget;
+                _bb?.Set(Blackboard.PlayerTransform, _playerTarget);
+                _bb?.Set(Blackboard.IsPlayerVisible, true);
                 lookTarget = _playerTarget;
-                SetRun();
+
+                _lastSeenPlayerPos = _playerTarget.position;
+                _hasLastSeenPos = true;
+                _searchingLastSeen = true;
+                _goingToVacuum = true;
+                _goingForCockroach = true;
+
+                if (_workRoutine != null || _postSitPause || _isFacingDesk)
+                {
+                    InterruptWork();
+                    return;
+                }
+
                 return;
             }
 
-            if (_hasLastSeenPos && !_searchingLastSeen && !_patrollingSearch && !_returningToLastSeen && _workRoutine == null && !_postSitPause)
-                BeginSearch();
-        }
+            if (_isAttacking)
+            {
+                StopAttack();
+                BeginLostTargetBehavior();
+                return;
+            }
 
-        private bool PlayerOrCockroachVisible()
-        {
-            if (_playerTarget != null) return true;
-            return cockroachTarget != null;
+            if (_workRoutine != null || _postSitPause || _isFacingDesk)
+                return;
+
+            if (_hasLastSeenPos && !_searchingLastSeen && !_patrollingSearch && !_returningToLastSeen)
+                BeginSearch();
         }
 
         private void InterruptWork()
@@ -490,7 +510,6 @@ namespace OfficeAI
             _sitStarted = false;
             _isFacingDesk = false;
             _postSitPause = false;
-            _inPostWorkCooldown = false;
 
             if (_animator != null)
                 _animator.SetBool(m_SitID, false);
@@ -523,10 +542,11 @@ namespace OfficeAI
             Vector3 toAgent = (transform.position - cockroachTarget.position).normalized;
             Vector3 wallPoint = cockroachTarget.position + toAgent * wallApproachDistance;
 
-            if (TryGetReachablePointNear(wallPoint, suctionRange, out var navPos))
+            if (TryGetReachablePointNear(wallPoint, suctionRange, out _))
             {
-                _lastSeenCockroachPos = navPos;
+                _lastSeenCockroachPos = wallPoint;
                 _hasLastSeenCockroach = true;
+                _currentTarget = cockroachTarget;
                 lookTarget = cockroachTarget;
                 _goingForCockroach = true;
                 _goingToVacuum = true;
@@ -564,7 +584,41 @@ namespace OfficeAI
             _agent.isStopped = false;
             SetSearchWalk();
             _agent.SetDestination(_lastSeenPlayerPos);
+            _pathSet = true;
             _state.value = NPCState.Searching;
+        }
+
+        private void BeginLostTargetBehavior()
+        {
+            if (_playerTarget != null)
+            {
+                if (TryGetReachablePointNear(_playerTarget.position, 2f, out var navPos))
+                    _lastSeenPlayerPos = navPos;
+                else
+                    _lastSeenPlayerPos = _playerTarget.position;
+
+                _hasLastSeenPos = true;
+                _searchingLastSeen = true;
+            }
+
+            _goingToVacuum = false;
+            _goingForCockroach = false;
+            _currentTarget = null;
+
+            if (_hasVacuum && _hasLastSeenPos)
+            {
+                SetSearchWalk();
+                _agent.isStopped = false;
+                _agent.SetDestination(_lastSeenPlayerPos);
+                _pathSet = true;
+                SetState(NPCState.Searching);
+            }
+            else
+            {
+                SetWalk();
+                _agent.isStopped = false;
+                SetState(NPCState.Walking);
+            }
         }
 
         private bool IsPlayerVisible() => _bb.Get<bool>(Blackboard.IsPlayerVisible);
@@ -574,7 +628,7 @@ namespace OfficeAI
         private bool HasLastSeenPosition() => _hasLastSeenPos && _hasVacuum && _searchingLastSeen;
         private bool CanSearchPatrol() => _hasVacuum && _patrollingSearch;
         private bool NeedReturnVacuum() => _hasVacuum && _returningVacuum;
-        private bool HasDeskTarget() => assignedDesk != null && !_inPostWorkCooldown;
+        private bool HasDeskTarget() => assignedDesk != null && _inWorkPhase;
 
         private bool IsAtDestination()
         {
@@ -658,6 +712,7 @@ namespace OfficeAI
             _agent.isStopped = false;
             SetRun();
             _agent.SetDestination(_lastSeenPlayerPos);
+            _pathSet = true;
             SetState(NPCState.Returning);
 
             if (IsAtTransform(_lastSeenPlayerPos))
@@ -665,6 +720,10 @@ namespace OfficeAI
                 _returningToLastSeen = false;
                 _searchingLastSeen = true;
                 _searchEndTime = Time.time + searchDuration;
+                _waitUntilTime = Time.time + searchWaitDuration;
+                _waitingAtPoint = true;
+                _agent.isStopped = true;
+                _agent.ResetPath();
                 SetSearchWalk();
                 SetState(NPCState.Searching);
                 return NodeStatus.Success;
@@ -677,13 +736,37 @@ namespace OfficeAI
         {
             if (!_hasLastSeenPos) return NodeStatus.Failure;
 
+            if (_waitingAtPoint)
+            {
+                if (Time.time < _waitUntilTime)
+                {
+                    _agent.isStopped = true;
+                    SetState(NPCState.Searching);
+                    return NodeStatus.Running;
+                }
+
+                _waitingAtPoint = false;
+            }
+
             _agent.isStopped = false;
             SetSearchWalk();
-            _agent.SetDestination(_lastSeenPlayerPos);
+
+            if (!_pathSet || !_agent.hasPath)
+            {
+                _agent.SetDestination(_lastSeenPlayerPos);
+                _pathSet = true;
+            }
+
             SetState(NPCState.Searching);
 
             if (IsAtTransform(_lastSeenPlayerPos))
+            {
+                _waitUntilTime = Time.time + searchWaitDuration;
+                _waitingAtPoint = true;
+                _agent.isStopped = true;
+                _agent.ResetPath();
                 return NodeStatus.Success;
+            }
 
             return NodeStatus.Running;
         }
@@ -692,6 +775,19 @@ namespace OfficeAI
         {
             if (_workRoutine != null || _postSitPause) return NodeStatus.Failure;
 
+            if (_waitingAtPoint)
+            {
+                _agent.isStopped = true;
+                if (Time.time < _waitUntilTime)
+                {
+                    SetState(NPCState.Searching);
+                    return NodeStatus.Running;
+                }
+
+                _waitingAtPoint = false;
+                _pathSet = false;
+            }
+
             _agent.isStopped = false;
 
             if (Time.time < _searchEndTime)
@@ -699,8 +795,13 @@ namespace OfficeAI
                 SetSearchWalk();
                 SetState(NPCState.Searching);
 
-                if (!_agent.hasPath || IsAtDestination())
+                if (!_pathSet || IsAtDestination())
+                {
                     _agent.SetDestination(_lastSeenPlayerPos);
+                    _pathSet = true;
+                    _waitUntilTime = Time.time + searchWaitDuration;
+                    _waitingAtPoint = true;
+                }
 
                 return NodeStatus.Running;
             }
@@ -708,6 +809,7 @@ namespace OfficeAI
             _searchingLastSeen = false;
             _patrollingSearch = true;
             _patrolSearchEndTime = Time.time + patrolSearchDuration;
+            _pathSet = false;
             SetWalk();
             SetState(NPCState.Walking);
             return NodeStatus.Success;
@@ -722,15 +824,46 @@ namespace OfficeAI
             {
                 _returningVacuum = true;
                 _patrollingSearch = false;
+                _pathSet = false;
                 return NodeStatus.Success;
             }
 
-            int idx = _bb.Get<int>(Blackboard.PatrolIndex);
-            if (!_agent.hasPath || IsAtDestination())
+            if (_waitingAtPoint)
             {
+                _agent.isStopped = true;
+                if (Time.time < _waitUntilTime)
+                {
+                    SetWalk();
+                    SetState(NPCState.Walking);
+                    return NodeStatus.Running;
+                }
+
+                _waitingAtPoint = false;
+                _pathSet = false;
+            }
+
+            int idx = _bb.Get<int>(Blackboard.PatrolIndex);
+
+            if (!_agent.pathPending && (!_agent.hasPath || IsAtDestination() || !_pathSet))
+            {
+                if (_currentPatrolIndex != idx)
+                    _currentPatrolIndex = idx;
+
                 idx = (idx + 1) % patrolPoints.Length;
                 _bb.Set(Blackboard.PatrolIndex, idx);
                 _agent.SetDestination(patrolPoints[idx].position);
+                _pathSet = true;
+            }
+
+            if (IsAtTransform(patrolPoints[idx].position))
+            {
+                _waitUntilTime = Time.time + pointWaitDuration;
+                _waitingAtPoint = true;
+                _agent.isStopped = true;
+                _agent.ResetPath();
+                SetWalk();
+                SetState(NPCState.Walking);
+                return NodeStatus.Running;
             }
 
             SetWalk();
@@ -762,6 +895,8 @@ namespace OfficeAI
                 _goingForCockroach = false;
                 _returningToLastSeen = false;
                 _hasLastSeenCockroach = false;
+                _currentTarget = null;
+                _pathSet = false;
                 SetWalk();
                 return NodeStatus.Success;
             }
@@ -775,7 +910,7 @@ namespace OfficeAI
 
             _agent.isStopped = true;
             _agent.ResetPath();
-            SetRun();
+            _isSprinting = false;
 
             Vector3 dir = _playerTarget.position - transform.position;
             dir.y = 0f;
@@ -806,21 +941,16 @@ namespace OfficeAI
                 return NodeStatus.Failure;
             }
 
-            float dist = Vector3.Distance(transform.position, _playerTarget.position);
-            if (dist > vacuumRange)
+            Vector3 eyePos = transform.position + Vector3.up * 1.5f;
+            Vector3 targetPos = _playerTarget.position + Vector3.up * 1.0f;
+            Vector3 toTarget = targetPos - eyePos;
+            float dist = toTarget.magnitude;
+
+            if (dist > vacuumRange || Vector3.Angle(transform.forward, toTarget.normalized) > sightAngle * 0.5f)
             {
                 StopAttack();
                 _nextAttackTime = Time.time + attackCooldown;
-
-                if (TryGetReachablePointNear(_playerTarget.position, 2f, out var navPos))
-                    _lastSeenPlayerPos = navPos;
-                else
-                    _lastSeenPlayerPos = _playerTarget.position;
-
-                _hasLastSeenPos = true;
-                _searchingLastSeen = true;
-                _agent.isStopped = false;
-                SetRun();
+                BeginLostTargetBehavior();
                 return NodeStatus.Failure;
             }
 
@@ -843,16 +973,7 @@ namespace OfficeAI
             {
                 StopAttack();
                 _nextAttackTime = Time.time + attackCooldown;
-
-                if (TryGetReachablePointNear(_playerTarget.position, 2f, out var navPos))
-                    _lastSeenPlayerPos = navPos;
-                else
-                    _lastSeenPlayerPos = _playerTarget.position;
-
-                _hasLastSeenPos = true;
-                _searchingLastSeen = true;
-                _agent.isStopped = false;
-                SetRun();
+                BeginLostTargetBehavior();
                 return NodeStatus.Success;
             }
 
@@ -889,13 +1010,10 @@ namespace OfficeAI
             _agent.isStopped = false;
             _workRoutine = null;
 
-            SetState(NPCState.Idle);
-            StartCoroutine(PostWorkCooldown());
-        }
+            _inWorkPhase = false;
+            _phaseEndTime = Time.time + patrolPhaseDuration;
 
-        private IEnumerator PostWorkCooldown()
-        {
-            _inPostWorkCooldown = true;
+            SetState(NPCState.Walking);
 
             if (patrolPoints != null && patrolPoints.Length > 0)
             {
@@ -905,11 +1023,8 @@ namespace OfficeAI
                 _agent.isStopped = false;
                 SetWalk();
                 _agent.SetDestination(patrolPoints[idx].position);
-                SetState(NPCState.Walking);
+                _pathSet = true;
             }
-
-            yield return new WaitForSeconds(PostWorkCooldownSeconds);
-            _inPostWorkCooldown = false;
         }
 
         private NodeStatus MoveToDesk()
@@ -960,7 +1075,6 @@ namespace OfficeAI
             _agent.ResetPath();
             _isSprinting = false;
             _sitStarted = false;
-
             _workStateEnteredTime = Time.time;
 
             Quaternion targetRot = assignedDesk.rotation;
@@ -974,7 +1088,6 @@ namespace OfficeAI
 
             _sitStarted = true;
             SetState(NPCState.Working);
-
             yield return new WaitForSeconds(sitInDuration);
 
             float workTime = Random.Range(minTaskDuration, maxTaskDuration);
@@ -982,9 +1095,17 @@ namespace OfficeAI
 
             while (timer < workTime)
             {
-                if (_playerTarget != null || cockroachTarget != null)
+                if (_workingInterrupted) yield break;
+
+                if (!_inWorkPhase)
                 {
-                    InterruptWork();
+                    _sitStarted = false;
+                    if (_animator != null) _animator.SetBool(m_SitID, false);
+                    _postSitPause = false;
+                    _workRoutine = null;
+                    _isFacingDesk = false;
+                    _agent.isStopped = false;
+                    SetState(NPCState.Walking);
                     yield break;
                 }
 
@@ -995,8 +1116,7 @@ namespace OfficeAI
             yield return new WaitForSeconds(sitOutDuration);
 
             _sitStarted = false;
-            if (_animator != null)
-                _animator.SetBool(m_SitID, false);
+            if (_animator != null) _animator.SetBool(m_SitID, false);
 
             _postSitPause = true;
             yield return new WaitForSeconds(pauseAfterWork);
@@ -1015,13 +1135,39 @@ namespace OfficeAI
             if (_workRoutine != null || _postSitPause || _isFacingDesk)
                 return NodeStatus.Running;
 
+            if (_waitingAtPoint)
+            {
+                _agent.isStopped = true;
+                if (Time.time < _waitUntilTime)
+                {
+                    SetWalk();
+                    SetState(NPCState.Walking);
+                    return NodeStatus.Running;
+                }
+
+                _waitingAtPoint = false;
+                _pathSet = false;
+            }
+
             int idx = _bb.Get<int>(Blackboard.PatrolIndex);
 
-            if (!_agent.hasPath || IsAtDestination())
+            if (!_agent.pathPending && (!_agent.hasPath || IsAtDestination() || !_pathSet))
             {
                 idx = (idx + 1) % patrolPoints.Length;
                 _bb.Set(Blackboard.PatrolIndex, idx);
                 _agent.SetDestination(patrolPoints[idx].position);
+                _pathSet = true;
+            }
+
+            if (IsAtTransform(patrolPoints[idx].position))
+            {
+                _waitUntilTime = Time.time + pointWaitDuration;
+                _waitingAtPoint = true;
+                _agent.isStopped = true;
+                _agent.ResetPath();
+                SetWalk();
+                SetState(NPCState.Walking);
+                return NodeStatus.Running;
             }
 
             SetWalk();
@@ -1055,17 +1201,6 @@ namespace OfficeAI
         {
             Gizmos.color = Color.yellow;
             Gizmos.DrawWireSphere(transform.position, sightRange);
-
-            float half = sightAngle * 0.5f * Mathf.Deg2Rad;
-            var left = new Vector3(Mathf.Sin(-half), 0, Mathf.Cos(-half));
-            var right = new Vector3(Mathf.Sin(half), 0, Mathf.Cos(half));
-            Gizmos.DrawRay(transform.position, transform.TransformDirection(left) * sightRange);
-            Gizmos.DrawRay(transform.position, transform.TransformDirection(right) * sightRange);
-
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(transform.position, vacuumRange);
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawWireSphere(transform.position, cockroachDetectRange);
         }
 #endif
 

@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 02edf8790c445af48afda7d8151cd09c, type: 3}
+  m_Name: Chapeau 8
+  m_EditorClassIdentifier: Assembly-CSharp::SkinData
+  skinId: 9
+  skinName: ShowerCap
+  previewIcon: {fileID: 21300000, guid: 0a090da9f36f7f84cb53608dab7e2592, type: 3}
+  skinPrefab: {fileID: 100000, guid: 4a20fc33c9ade414aa0b771618216a31, type: 3}
+  isUnlockedByDefault: 1
+  unlockId: 9
+  positionOffset: {x: 0, y: 0, z: 0}
+  rotationOffset: {x: 0, y: 0, z: 0}
+  scaleOverride: {x: 0.5, y: 0.5, z: 0.5}
