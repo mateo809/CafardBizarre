@@ -814,6 +814,11 @@ public class RoachController1 : NetworkBehaviour
         }
     }
 
+    public void ApplyExternalForce(Vector3 force)
+    {
+        worldVelocity += force;
+    }
+
     public Vector3 GetGroundNormal() => groundNormal;
     public bool IsGrounded => isGrounded;
     public Vector3 GroundNormal => groundNormal;
