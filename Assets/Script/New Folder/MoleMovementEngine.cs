@@ -118,6 +118,7 @@ public class RoachController1 : NetworkBehaviour
     private float _stuckCheckTimer;
     private int _stuckAttemptCount;
 
+    private BackendCaller _backendCaller;
     protected override void OnSpawned()
     {
         base.OnSpawned();
@@ -131,13 +132,15 @@ public class RoachController1 : NetworkBehaviour
                 camController.Setup(transform, this);
             cameraRig = camInstance.transform;
         }
+
+        StartCoroutine(_backendCaller.GetMe());
     }
 
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
         sc = GetComponent<SphereCollider>();
-
+        _backendCaller = GetComponent<BackendCaller>();
         rb.isKinematic = true;
         rb.useGravity = false;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
@@ -154,6 +157,8 @@ public class RoachController1 : NetworkBehaviour
         _lastStuckCheckPos = transform.position;
         if (isOwner)
             StartCoroutine(FindCanvasWithRetry());
+
+        _backendCaller.GetMe();
     }
 
     void OnEnable()
