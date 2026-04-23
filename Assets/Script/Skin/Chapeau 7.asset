@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 02edf8790c445af48afda7d8151cd09c, type: 3}
-  m_Name: caca
+  m_Name: Chapeau 7
   m_EditorClassIdentifier: Assembly-CSharp::SkinData
-  skinId: 1
-  skinName: meow
-  previewIcon: {fileID: 21300000, guid: 88f7de20581ae764486ed2b70ab22d16, type: 3}
-  skinPrefab: {fileID: 2471434266851210281, guid: 0837d45161aff3946a4c5f87726c1ede, type: 3}
+  skinId: 8
+  skinName: PoliceCap
+  previewIcon: {fileID: 21300000, guid: 7bbe90b9618d1a24abc07977904733fb, type: 3}
+  skinPrefab: {fileID: 100000, guid: d7e858085e7d1f24c937f29083939dec, type: 3}
   isUnlockedByDefault: 1
-  unlockId: 2
+  unlockId: 8
   positionOffset: {x: 0, y: 0, z: 0}
   rotationOffset: {x: 0, y: 0, z: 0}
-  scaleOverride: {x: 1, y: 1, z: 1}
+  scaleOverride: {x: 0.5, y: 0.5, z: 0.5}

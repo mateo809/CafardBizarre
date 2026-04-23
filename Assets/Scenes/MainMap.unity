@@ -734,6 +734,11 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 7189912606082873600, guid: b63f3746063691e49b6baf823257f173, type: 3}
   m_PrefabInstance: {fileID: 1624253411}
   m_PrefabAsset: {fileID: 0}
+--- !u!4 &35617937 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 7139026ae7510b74a9ad60cefbca1f1b, type: 3}
+  m_PrefabInstance: {fileID: 1708538021}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &36039290
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3715,7 +3720,7 @@ PrefabInstance:
       objectReference: {fileID: 19488970}
     - target: {fileID: 2262420998504138278, guid: d008196d2e7500c4eb1242c78fc7d43e, type: 3}
       propertyPath: runAgentSpeed
-      value: 8
+      value: 6
       objectReference: {fileID: 0}
     - target: {fileID: 2262420998504138278, guid: d008196d2e7500c4eb1242c78fc7d43e, type: 3}
       propertyPath: searchDuration
@@ -3736,14 +3741,34 @@ PrefabInstance:
     - target: {fileID: 2262420998504138278, guid: d008196d2e7500c4eb1242c78fc7d43e, type: 3}
       propertyPath: vacuumStorePoint
       value: 
-      objectReference: {fileID: 1485413231}
+      objectReference: {fileID: 1603984749}
+    - target: {fileID: 2262420998504138278, guid: d008196d2e7500c4eb1242c78fc7d43e, type: 3}
+      propertyPath: pointWaitDuration
+      value: 5
+      objectReference: {fileID: 0}
     - target: {fileID: 2262420998504138278, guid: d008196d2e7500c4eb1242c78fc7d43e, type: 3}
       propertyPath: vacuumPickupPoint
       value: 
-      objectReference: {fileID: 1485413231}
+      objectReference: {fileID: 1603984749}
+    - target: {fileID: 2262420998504138278, guid: d008196d2e7500c4eb1242c78fc7d43e, type: 3}
+      propertyPath: waypointTolerance
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2262420998504138278, guid: d008196d2e7500c4eb1242c78fc7d43e, type: 3}
+      propertyPath: searchWaitDuration
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 2262420998504138278, guid: d008196d2e7500c4eb1242c78fc7d43e, type: 3}
+      propertyPath: arrivalWaitDuration
+      value: 5
+      objectReference: {fileID: 0}
     - target: {fileID: 2262420998504138278, guid: d008196d2e7500c4eb1242c78fc7d43e, type: 3}
       propertyPath: cockroachDetectRange
       value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 2262420998504138278, guid: d008196d2e7500c4eb1242c78fc7d43e, type: 3}
+      propertyPath: obstacleLayer.m_Bits
+      value: 4087
       objectReference: {fileID: 0}
     - target: {fileID: 2262420998504138278, guid: d008196d2e7500c4eb1242c78fc7d43e, type: 3}
       propertyPath: wallApproachDistance
@@ -7498,7 +7523,7 @@ PrefabInstance:
       objectReference: {fileID: 744871345}
     - target: {fileID: 4719765668563917028, guid: 93aff815c810b284fb71005d596b0a0e, type: 3}
       propertyPath: runAgentSpeed
-      value: 8
+      value: 6
       objectReference: {fileID: 0}
     - target: {fileID: 4719765668563917028, guid: 93aff815c810b284fb71005d596b0a0e, type: 3}
       propertyPath: searchDuration
@@ -7519,14 +7544,34 @@ PrefabInstance:
     - target: {fileID: 4719765668563917028, guid: 93aff815c810b284fb71005d596b0a0e, type: 3}
       propertyPath: vacuumStorePoint
       value: 
-      objectReference: {fileID: 1485413231}
+      objectReference: {fileID: 1603984749}
+    - target: {fileID: 4719765668563917028, guid: 93aff815c810b284fb71005d596b0a0e, type: 3}
+      propertyPath: pointWaitDuration
+      value: 5
+      objectReference: {fileID: 0}
     - target: {fileID: 4719765668563917028, guid: 93aff815c810b284fb71005d596b0a0e, type: 3}
       propertyPath: vacuumPickupPoint
       value: 
-      objectReference: {fileID: 1485413231}
+      objectReference: {fileID: 1603984749}
+    - target: {fileID: 4719765668563917028, guid: 93aff815c810b284fb71005d596b0a0e, type: 3}
+      propertyPath: waypointTolerance
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4719765668563917028, guid: 93aff815c810b284fb71005d596b0a0e, type: 3}
+      propertyPath: searchWaitDuration
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 4719765668563917028, guid: 93aff815c810b284fb71005d596b0a0e, type: 3}
+      propertyPath: arrivalWaitDuration
+      value: 5
+      objectReference: {fileID: 0}
     - target: {fileID: 4719765668563917028, guid: 93aff815c810b284fb71005d596b0a0e, type: 3}
       propertyPath: cockroachDetectRange
       value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 4719765668563917028, guid: 93aff815c810b284fb71005d596b0a0e, type: 3}
+      propertyPath: obstacleLayer.m_Bits
+      value: 4087
       objectReference: {fileID: 0}
     - target: {fileID: 4719765668563917028, guid: 93aff815c810b284fb71005d596b0a0e, type: 3}
       propertyPath: wallApproachDistance
@@ -10132,7 +10177,7 @@ PrefabInstance:
       objectReference: {fileID: 775186191}
     - target: {fileID: -3512957468711232097, guid: 2589c1eb353041147937b865a25ececd, type: 3}
       propertyPath: runAgentSpeed
-      value: 8
+      value: 6
       objectReference: {fileID: 0}
     - target: {fileID: -3512957468711232097, guid: 2589c1eb353041147937b865a25ececd, type: 3}
       propertyPath: searchDuration
@@ -10153,14 +10198,34 @@ PrefabInstance:
     - target: {fileID: -3512957468711232097, guid: 2589c1eb353041147937b865a25ececd, type: 3}
       propertyPath: vacuumStorePoint
       value: 
-      objectReference: {fileID: 1485413231}
+      objectReference: {fileID: 1603984749}
+    - target: {fileID: -3512957468711232097, guid: 2589c1eb353041147937b865a25ececd, type: 3}
+      propertyPath: pointWaitDuration
+      value: 5
+      objectReference: {fileID: 0}
     - target: {fileID: -3512957468711232097, guid: 2589c1eb353041147937b865a25ececd, type: 3}
       propertyPath: vacuumPickupPoint
       value: 
-      objectReference: {fileID: 1485413231}
+      objectReference: {fileID: 1603984749}
+    - target: {fileID: -3512957468711232097, guid: 2589c1eb353041147937b865a25ececd, type: 3}
+      propertyPath: waypointTolerance
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -3512957468711232097, guid: 2589c1eb353041147937b865a25ececd, type: 3}
+      propertyPath: searchWaitDuration
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: -3512957468711232097, guid: 2589c1eb353041147937b865a25ececd, type: 3}
+      propertyPath: arrivalWaitDuration
+      value: 5
+      objectReference: {fileID: 0}
     - target: {fileID: -3512957468711232097, guid: 2589c1eb353041147937b865a25ececd, type: 3}
       propertyPath: cockroachDetectRange
       value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: -3512957468711232097, guid: 2589c1eb353041147937b865a25ececd, type: 3}
+      propertyPath: obstacleLayer.m_Bits
+      value: 4087
       objectReference: {fileID: 0}
     - target: {fileID: -3512957468711232097, guid: 2589c1eb353041147937b865a25ececd, type: 3}
       propertyPath: wallApproachDistance
@@ -47067,6 +47132,38 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4746534753112370497, guid: 794b45d9dcd477445a791f54bab09d4c, type: 3}
   m_PrefabInstance: {fileID: 393269412}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1603984748
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1603984749}
+  m_Layer: 0
+  m_Name: vaccum
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1603984749
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1603984748}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 8.85, y: 3.86, z: -4.48}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 35617937}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!4 &1604761622 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3736548858733519426, guid: 1c425a0791afbfb4795e35c5c317b3f5, type: 3}
@@ -50361,6 +50458,79 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: a55c555f579cc3647bf8aaf8116217a9, type: 3}
+--- !u!1001 &1708538021
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1603984749}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 7139026ae7510b74a9ad60cefbca1f1b, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.04
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 7139026ae7510b74a9ad60cefbca1f1b, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.04
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 7139026ae7510b74a9ad60cefbca1f1b, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 0.04
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 7139026ae7510b74a9ad60cefbca1f1b, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 7139026ae7510b74a9ad60cefbca1f1b, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -3.67
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 7139026ae7510b74a9ad60cefbca1f1b, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 2.16
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 7139026ae7510b74a9ad60cefbca1f1b, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 7139026ae7510b74a9ad60cefbca1f1b, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 7139026ae7510b74a9ad60cefbca1f1b, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 7139026ae7510b74a9ad60cefbca1f1b, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 7139026ae7510b74a9ad60cefbca1f1b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 7139026ae7510b74a9ad60cefbca1f1b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 180
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 7139026ae7510b74a9ad60cefbca1f1b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 7139026ae7510b74a9ad60cefbca1f1b, type: 3}
+      propertyPath: m_ConstrainProportionsScale
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 7139026ae7510b74a9ad60cefbca1f1b, type: 3}
+      propertyPath: m_Name
+      value: ASSET
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 7139026ae7510b74a9ad60cefbca1f1b, type: 3}
 --- !u!1001 &1718743372
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -79400,6 +79570,7 @@ SceneRoots:
   - {fileID: 332733220}
   - {fileID: 113772517}
   - {fileID: 233556368}
+  - {fileID: 1603984749}
   - {fileID: 1485413231}
   - {fileID: 738738476}
   - {fileID: 1350043802}
