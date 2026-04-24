@@ -15,7 +15,7 @@ MonoBehaviour:
   skinId: 1
   skinName: Crown
   previewIcon: {fileID: 21300000, guid: 738bc02ba40b99946a97009048a4171d, type: 3}
-  skinPrefab: {fileID: 100000, guid: 598a1f45fefa08846b93be35e98f166e, type: 3}
+  skinPrefab: {fileID: 1241639811021861090, guid: ba573320e6e97504db232649253e3192, type: 3}
   isUnlockedByDefault: 1
   unlockId: 1
   positionOffset: {x: 0, y: 0, z: 0}

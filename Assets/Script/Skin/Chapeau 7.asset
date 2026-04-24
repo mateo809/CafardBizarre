@@ -15,7 +15,7 @@ MonoBehaviour:
   skinId: 8
   skinName: PoliceCap
   previewIcon: {fileID: 21300000, guid: 7bbe90b9618d1a24abc07977904733fb, type: 3}
-  skinPrefab: {fileID: 100000, guid: d7e858085e7d1f24c937f29083939dec, type: 3}
+  skinPrefab: {fileID: 1882042689311457959, guid: de78e4762dae893498b18f5e550c41c3, type: 3}
   isUnlockedByDefault: 1
   unlockId: 8
   positionOffset: {x: 0, y: 0, z: 0}
