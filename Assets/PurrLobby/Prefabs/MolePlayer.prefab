@@ -656,7 +656,7 @@ SkinnedMeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: -1015628074488157670, guid: bd191b40938bdcf4fbde90b462eb737a, type: 3}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1647,7 +1647,7 @@ MonoBehaviour:
   _networkRules: {fileID: 0}
   _visitiblityRules: {fileID: 0}
   _animator: {fileID: 5656035735598206435}
-  _ownerAuth: 0
+  _ownerAuth: 1
   _autoSyncParameters: 0
   _dontSyncParameters: []
 --- !u!95 &5656035735598206435

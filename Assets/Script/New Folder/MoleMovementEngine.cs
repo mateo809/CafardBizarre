@@ -138,6 +138,16 @@ public class RoachController1 : NetworkBehaviour
         if (_backendCaller != null)
             StartCoroutine(_backendCaller.GetMe());
     }
+    private void LateUpdate()
+    {
+        if (_carriedItem != null && _transportPoint != null)
+        {
+            _carriedItem.transform.SetPositionAndRotation(
+                _transportPoint.position,
+                _transportPoint.rotation
+            );
+        }
+    }
 
     void Awake()
     {
@@ -172,10 +182,6 @@ public class RoachController1 : NetworkBehaviour
         sprintAction?.action.Enable();
         pickUpAction?.action.Enable();
         dropAction?.action.Enable();
-    }
-
-    void OnDisable()
-    {
     }
 
     private void Update()
@@ -215,8 +221,6 @@ public class RoachController1 : NetworkBehaviour
 
         Vector3 origin = _pickupOrigin.position;
         Vector3 direction = _pickupOrigin.forward;
-
-        Debug.DrawRay(origin, direction * _pickupRange, Color.red, 1f);
 
         if (Physics.Raycast(origin, direction, out RaycastHit hit, _pickupRange, _itemLayer, QueryTriggerInteraction.Ignore))
         {
@@ -621,18 +625,17 @@ public class RoachController1 : NetworkBehaviour
     {
         if (_networkAnimator == null) return;
 
-        bool carrying = _carriedItem != null;
+        bool carrying = _isCarryingObject || _carriedItem != null;
+        bool moving = _moveInput.sqrMagnitude > 0.01f;
+        bool grounded = isGrounded;
+        bool wallClimb = !grounded && Vector3.Angle(groundNormal, Vector3.up) > _maxSlopeAngle;
+
+        bool run = grounded && moving && !carrying;
+        bool fly = !grounded && !wallClimb && !carrying;
+
         _networkAnimator.SetBool("Item", carrying);
-
-        bool flying = _currentState == PlayerState.Jumping
-                   || _currentState == PlayerState.Falling
-                   || _currentState == PlayerState.Gliding;
-
-        bool running = _currentState == PlayerState.Grounded
-                    && _moveInput.sqrMagnitude > 0.01f && !carrying;
-
-        _networkAnimator.SetBool("Fly", flying);
-        _networkAnimator.SetBool("Run", running || (_currentState == PlayerState.WallClimbing && _moveInput.sqrMagnitude > 0.01f && !carrying));
+        _networkAnimator.SetBool("Run", run);
+        _networkAnimator.SetBool("Fly", fly);
     }
 
     [ServerRpc]
@@ -646,7 +649,6 @@ public class RoachController1 : NetworkBehaviour
     {
         if (item == null) return;
 
-        // ── 1. Disable physics BEFORE reparenting ──────────────────────────
         if (item.TryGetComponent(out Rigidbody itemRb))
         {
             itemRb.isKinematic = true;
@@ -655,32 +657,26 @@ public class RoachController1 : NetworkBehaviour
             itemRb.angularVelocity = Vector3.zero;
         }
 
-        // ── 2. Notify ItemPickUp component ─────────────────────────────────
         if (item.TryGetComponent(out ItemPickUp itemPickUp))
         {
             itemPickUp.Interact(gameObject);
             _currentWeight = itemPickUp.weight;
         }
 
-        // ── 3. Choose anchor – fallback to player root if not assigned ─────
         Transform anchor = (_transportPoint != null) ? _transportPoint : transform;
 
-        // ── 4. Reparent (worldPositionStays = false → local space reset) ───
+        Vector3 worldScale = item.transform.lossyScale;
         item.transform.SetParent(anchor, false);
         item.transform.localPosition = Vector3.zero;
         item.transform.localRotation = Quaternion.identity;
-        item.transform.localScale = Vector3.one;
 
-        //// ── 5. Elevate above anchor using InChildren so nested Renderers work
-        //Renderer rend = item.GetComponentInChildren<Renderer>();
-        //if (rend != null)
-        //{
-        //    // Half-height offset so item sits on top of the transport point
-        //    float halfH = rend.bounds.extents.y;
-        //    item.transform.localPosition = new Vector3(0f, halfH + 0.05f, 0f);
-        //}
+        Vector3 parentScale = anchor.lossyScale;
+        item.transform.localScale = new Vector3(
+            parentScale.x != 0f ? worldScale.x / parentScale.x : worldScale.x,
+            parentScale.y != 0f ? worldScale.y / parentScale.y : worldScale.y,
+            parentScale.z != 0f ? worldScale.z / parentScale.z : worldScale.z
+        );
 
-        // ── 6. Register carried state ──────────────────────────────────────
         carriedObject = item;
         _carriedItem = item;
         _isCarryingObject = true;
@@ -700,10 +696,11 @@ public class RoachController1 : NetworkBehaviour
 
         _isCarryingObject = false;
 
-        if (TryGetComponent(out InventoryManager inventory))
+        ItemPickUp itemPickUp = _carriedItem.GetComponent<ItemPickUp>();
+        if (TryGetComponent(out InventoryManager inventory) && itemPickUp != null)
         {
-            inventory.RemoveItem(_carriedItem.GetComponent<ItemPickUp>().itemData, 1);
-            _carriedItem.GetComponent<ItemPickUp>().owner = null;
+            inventory.RemoveItem(itemPickUp.itemData, 1);
+            itemPickUp.owner = null;
         }
 
         _currentWeight = 0f;
@@ -745,7 +742,15 @@ public class RoachController1 : NetworkBehaviour
     private void CheckPickupRangeFeedback()
     {
         if (!_pickupOrigin) _pickupOrigin = transform;
-        _isInPickupRange = Physics.Raycast(_pickupOrigin.position, _pickupOrigin.forward, _pickupRange, _itemLayer);
+
+        bool found = false;
+        if (Physics.Raycast(_pickupOrigin.position, _pickupOrigin.forward, out RaycastHit hit, _pickupRange, _itemLayer, QueryTriggerInteraction.Ignore))
+        {
+            ItemPickUp itemPickUp = hit.collider.GetComponentInParent<ItemPickUp>();
+            found = itemPickUp != null;
+        }
+
+        _isInPickupRange = found;
 
         if (_pickupFeedbackInstance)
             _pickupFeedbackInstance.SetActive(_isInPickupRange);
@@ -800,27 +805,6 @@ public class RoachController1 : NetworkBehaviour
     {
         yield return new WaitForSeconds(delay);
         Physics.IgnoreCollision(a, b, false);
-    }
-
-    private void OnDrawGizmosSelected()
-    {
-        Gizmos.color = isGrounded ? Color.green : Color.yellow;
-        if (sc) Gizmos.DrawWireSphere(transform.position, sc.radius);
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawRay(transform.position, groundNormal * 0.8f);
-
-        if (_pickupOrigin)
-        {
-            Gizmos.color = Color.green;
-            Gizmos.DrawLine(_pickupOrigin.position, _pickupOrigin.position + _pickupOrigin.forward * _pickupRange);
-        }
-
-        // Visualise le transport point dans l'éditeur
-        if (_transportPoint)
-        {
-            Gizmos.color = Color.magenta;
-            Gizmos.DrawWireSphere(_transportPoint.position, 0.15f);
-        }
     }
 
     public void ApplyExternalForce(Vector3 force) => worldVelocity += force;

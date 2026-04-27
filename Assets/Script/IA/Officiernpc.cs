@@ -141,9 +141,19 @@ namespace OfficeAI
         private int _currentSearchPatrolIndex = -1;
         private bool _pathSet;
 
-        private static readonly int AttackHash = Animator.StringToHash("Attack");
-        private static readonly int IdleRelaxedHash = Animator.StringToHash("Idle_Relaxed");
-        private static readonly int IdleLookAroundHash = Animator.StringToHash("Idle_Look_Around");
+        public SyncVar<float> netHorizontal = new SyncVar<float>();
+        public SyncVar<float> netVertical = new SyncVar<float>();
+        public SyncVar<float> netStateFloat = new SyncVar<float>();
+
+        private int _hashHorizontal;
+        private int _hashVertical;
+        private int _hashState;
+        private int _hashJump;
+        private int _hashSit;
+        private int _hashSprint;
+        private int _hashAttack;
+        private int _hashIdleRelaxed;
+        private int _hashIdleLookAround;
 
         private void Awake()
         {
@@ -156,6 +166,17 @@ namespace OfficeAI
 
             if (vacuumObject != null)
                 _vacuumOriginalParent = vacuumObject.transform.parent;
+
+            // Précalcul des hashes une seule fois
+            _hashHorizontal = Animator.StringToHash(m_HorizontalID);
+            _hashVertical = Animator.StringToHash(m_VerticalID);
+            _hashState = Animator.StringToHash(m_StateID);
+            _hashJump = Animator.StringToHash(m_JumpID);
+            _hashSit = Animator.StringToHash(m_SitID);
+            _hashSprint = Animator.StringToHash(m_SprintID);
+            _hashAttack = Animator.StringToHash(m_AttackID);
+            _hashIdleRelaxed = Animator.StringToHash(m_IdleRelaxedID);
+            _hashIdleLookAround = Animator.StringToHash(m_IdleLookAroundID);
         }
 
         protected override void OnSpawned()
@@ -212,8 +233,7 @@ namespace OfficeAI
                         _sitStarted = false;
                         _isFacingDesk = false;
                         _postSitPause = false;
-                        if (_animator != null)
-                            _animator.SetBool(m_SitID, false);
+                        SetNetBool(_hashSit, false);
                         _agent.isStopped = false;
                     }
                     SetState(NPCState.Walking);
@@ -247,12 +267,19 @@ namespace OfficeAI
             _postSitPause = false;
             _workingInterrupted = false;
 
-            if (_animator != null)
-                _animator.SetBool(m_SitID, false);
+            SetNetBool(_hashSit, false);
 
             _agent.isStopped = false;
             _workRoutine = null;
             SetState(NPCState.Idle);
+        }
+
+        private void SetNetBool(int hash, bool value)
+        {
+            if (_netAnimator != null)
+                _netAnimator.SetBool(hash, value);
+            else if (_animator != null)
+                _animator.SetBool(hash, value);
         }
 
         private void UpdateAnimator()
@@ -273,29 +300,41 @@ namespace OfficeAI
             bool isIdleLookAround = isIdle &&
                                     (_state.value == NPCState.Searching || _state.value == NPCState.Returning ||
                                      _patrollingSearch || _searchingLastSeen);
-
-            _animator.SetFloat(m_HorizontalID, _flowAxis.x);
-            _animator.SetFloat(m_VerticalID, _flowAxis.y);
-            _animator.SetFloat(m_StateID, Mathf.Clamp01(_flowState));
-            _animator.SetBool(m_JumpID, _jumpState);
-            _animator.SetBool(m_SitID, _sitStarted);
-            _animator.SetBool(m_AttackID, _isAttacking);
-            _animator.SetBool(m_IdleRelaxedID, isIdleRelaxed);
-            _animator.SetBool(m_IdleLookAroundID, isIdleLookAround);
-
             if (_isAttacking || _workRoutine != null || _postSitPause || _isFacingDesk)
             {
                 _targetAxis = Vector2.zero;
                 _targetState = 1f;
-                return;
+            }
+            else
+            {
+                _flowAxis = Vector2.ClampMagnitude(
+                    _flowAxis + animFlow * Time.deltaTime * (_targetAxis - _flowAxis).normalized, 1f);
+
+                _flowState = Mathf.Clamp01(
+                    _flowState + animFlow * Time.deltaTime * Mathf.Sign(_targetState - _flowState));
             }
 
-            _flowAxis = Vector2.ClampMagnitude(
-                _flowAxis + animFlow * Time.deltaTime * (_targetAxis - _flowAxis).normalized,
-                1f);
+            float hor = _flowAxis.x;
+            float ver = _flowAxis.y;
+            float state = Mathf.Clamp01(_flowState);
 
-            _flowState = Mathf.Clamp01(
-                _flowState + animFlow * Time.deltaTime * Mathf.Sign(_targetState - _flowState));
+            if (isServer)
+            {
+                netHorizontal.value = hor;
+                netVertical.value = ver;
+                netStateFloat.value = state;
+            }
+
+            _animator.SetFloat(_hashHorizontal, netHorizontal.value);
+            _animator.SetFloat(_hashVertical, netVertical.value);
+            _animator.SetFloat(_hashState, netStateFloat.value);
+            _animator.SetBool(_hashJump, _jumpState);
+
+            SetNetBool(_hashSit, _sitStarted);
+            SetNetBool(_hashAttack, _isAttacking);
+            SetNetBool(_hashSprint, _isSprinting);
+            SetNetBool(_hashIdleRelaxed, isIdleRelaxed);
+            SetNetBool(_hashIdleLookAround, isIdleLookAround);
         }
 
         private void UpdateAnimatorTargets(NPCState state)
@@ -351,17 +390,21 @@ namespace OfficeAI
             _agent.speed = searchAgentSpeed;
         }
 
+        /// <summary>
+        /// Active/désactive l'état d'attaque — plus de doublon avec NetworkAnimator,
+        /// UpdateAnimator() s'occupe du SetNetBool chaque frame.
+        /// </summary>
         private void SetAttack(bool value)
         {
             _isAttacking = value;
             _agent.isStopped = value;
             if (value) _agent.ResetPath();
-
-            if (_netAnimator != null)
-                _netAnimator.SetBool(AttackHash, value);
-            else if (_animator != null)
-                _animator.SetBool(AttackHash, value);
+            // Pas d'appel manuel à _netAnimator ici : UpdateAnimator() le fait chaque frame.
         }
+
+        // ?????????????????????????????????????????????????????????????
+        //  BEHAVIOR TREE
+        // ?????????????????????????????????????????????????????????????
 
         private BTNode BuildTree()
         {
@@ -425,6 +468,10 @@ namespace OfficeAI
                 }),
             });
         }
+
+        // ?????????????????????????????????????????????????????????????
+        //  DÉTECTION
+        // ?????????????????????????????????????????????????????????????
 
         private void DetectPlayer()
         {
@@ -511,8 +558,7 @@ namespace OfficeAI
             _isFacingDesk = false;
             _postSitPause = false;
 
-            if (_animator != null)
-                _animator.SetBool(m_SitID, false);
+            SetNetBool(_hashSit, false);
 
             _agent.isStopped = false;
             SetState(NPCState.Idle);
@@ -621,6 +667,10 @@ namespace OfficeAI
             }
         }
 
+        // ?????????????????????????????????????????????????????????????
+        //  CONDITIONS BT
+        // ?????????????????????????????????????????????????????????????
+
         private bool IsPlayerVisible() => _bb.Get<bool>(Blackboard.IsPlayerVisible);
         private bool HasVacuum() => _hasVacuum;
         private bool NeedVacuum() => !_hasVacuum && _goingToVacuum;
@@ -642,6 +692,10 @@ namespace OfficeAI
             if (assignedDesk == null) return false;
             return IsAtTransform(assignedDesk.position);
         }
+
+        // ?????????????????????????????????????????????????????????????
+        //  ACTIONS BT
+        // ?????????????????????????????????????????????????????????????
 
         private NodeStatus GoPickupVacuum()
         {
@@ -996,6 +1050,10 @@ namespace OfficeAI
             _agent.isStopped = false;
         }
 
+        // ?????????????????????????????????????????????????????????????
+        //  TRAVAIL AU BUREAU
+        // ?????????????????????????????????????????????????????????????
+
         private void EndWork()
         {
             _sitStarted = false;
@@ -1004,8 +1062,7 @@ namespace OfficeAI
             _postSitPause = false;
             _workingInterrupted = false;
 
-            if (_animator != null)
-                _animator.SetBool(m_SitID, false);
+            SetNetBool(_hashSit, false);
 
             _agent.isStopped = false;
             _workRoutine = null;
@@ -1100,7 +1157,7 @@ namespace OfficeAI
                 if (!_inWorkPhase)
                 {
                     _sitStarted = false;
-                    if (_animator != null) _animator.SetBool(m_SitID, false);
+                    SetNetBool(_hashSit, false);
                     _postSitPause = false;
                     _workRoutine = null;
                     _isFacingDesk = false;
@@ -1116,7 +1173,7 @@ namespace OfficeAI
             yield return new WaitForSeconds(sitOutDuration);
 
             _sitStarted = false;
-            if (_animator != null) _animator.SetBool(m_SitID, false);
+            SetNetBool(_hashSit, false);
 
             _postSitPause = true;
             yield return new WaitForSeconds(pauseAfterWork);
@@ -1126,6 +1183,10 @@ namespace OfficeAI
         }
 
         private NodeStatus TickTask() => _workRoutine != null ? NodeStatus.Running : NodeStatus.Success;
+
+        // ?????????????????????????????????????????????????????????????
+        //  PATROUILLE
+        // ?????????????????????????????????????????????????????????????
 
         private NodeStatus Patrol()
         {
@@ -1174,6 +1235,10 @@ namespace OfficeAI
             SetState(NPCState.Walking);
             return NodeStatus.Running;
         }
+
+        // ?????????????????????????????????????????????????????????????
+        //  HELPERS
+        // ?????????????????????????????????????????????????????????????
 
         private bool IsAtTransform(Vector3 targetPos)
         {

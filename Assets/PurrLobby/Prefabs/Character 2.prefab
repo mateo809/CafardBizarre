@@ -2331,6 +2331,7 @@ GameObject:
   - component: {fileID: 4266521480194934711}
   - component: {fileID: 6207547130123892559}
   - component: {fileID: 4719765668563917028}
+  - component: {fileID: 1742343379568917120}
   m_Layer: 0
   m_Name: Character 2
   m_TagString: Untagged
@@ -2578,19 +2579,55 @@ MonoBehaviour:
   obstacleLayer:
     serializedVersion: 2
     m_Bits: 4294967295
+  debugDetection: 1
+  cockroachTarget: {fileID: 0}
+  cockroachDetectRange: 12
+  wallApproachDistance: 1.2
+  suctionRange: 2
+  walkAgentSpeed: 2
+  runAgentSpeed: 3.2
+  searchAgentSpeed: 1.6
   vacuumRange: 5
   vacuumForce: 5
   attackDuration: 20
   attackCooldown: 1.5
   vacuumFX: {fileID: 0}
+  vacuumObject: {fileID: 0}
+  rightHand: {fileID: 0}
   vacuumPickupPoint: {fileID: 0}
   vacuumStorePoint: {fileID: 0}
-  searchDuration: 6
-  patrolSearchDuration: 4
   patrolPoints: []
   waypointTolerance: 0.5
+  pointWaitDuration: 1.5
+  workPhaseDuration: 30
+  patrolPhaseDuration: 20
   minTaskDuration: 3
   maxTaskDuration: 8
+  sitInDuration: 0.5
+  sitOutDuration: 0.4
+  pauseAfterWork: 3
+  deskStoppingDistance: 0.25
+  deskTurnSpeed: 6
+  searchDuration: 6
+  patrolSearchDuration: 4
+  searchWaitDuration: 1
+  lookTarget: {fileID: 0}
+  m_HorizontalID: Hor
+  m_VerticalID: Vert
+  m_StateID: State
+  m_JumpID: IsJump
+  m_SitID: Sit
+  m_SprintID: Sprint
+  m_AttackID: Attack
+  m_IdleRelaxedID: Idle_Relaxed
+  m_IdleLookAroundID: Idle_Look_Around
+  m_IdleID: Idle
+  m_LookWeight:
+    weight: 1
+    body: 0.3
+    head: 0.7
+    eyes: 1
+  animFlow: 4.5
   assignedDesk: {fileID: 0}
   _state:
     _value: 0
@@ -2600,6 +2637,31 @@ MonoBehaviour:
     _value: 0
     _ownerAuth: 0
     _sendIntervalInSeconds: 0
+--- !u!114 &1742343379568917120
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6328813972931838420}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e7b598b9d8509d64abb9fdaf07fa3f6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PurrNet.Runtime::PurrNet.NetworkAnimator
+  _isSetup: 0
+  _prefabId: -2147483648
+  _componentIndex: -2147483648
+  _shouldBePooled: 0
+  _parent: {fileID: 0}
+  _invertedPathToNearestParent: 
+  _directChildren: []
+  _networkRules: {fileID: 0}
+  _visitiblityRules: {fileID: 0}
+  _animator: {fileID: 7117173139418928622}
+  _ownerAuth: 1
+  _autoSyncParameters: 0
+  _dontSyncParameters: []
 --- !u!1 &6370253174295850822
 GameObject:
   m_ObjectHideFlags: 0

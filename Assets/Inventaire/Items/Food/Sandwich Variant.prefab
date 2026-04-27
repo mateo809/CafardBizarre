@@ -34,7 +34,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4368606742059851432, guid: ab731b419fe07c043824ad8c52e3007e, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 3.05
+      value: 3.061
       objectReference: {fileID: 0}
     - target: {fileID: 4368606742059851432, guid: ab731b419fe07c043824ad8c52e3007e, type: 3}
       propertyPath: m_LocalPosition.z
@@ -72,7 +72,8 @@ PrefabInstance:
       propertyPath: m_Name
       value: Sandwich Variant
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 947465528840152186, guid: ab731b419fe07c043824ad8c52e3007e, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: 4368606742059851432, guid: ab731b419fe07c043824ad8c52e3007e, type: 3}
@@ -112,8 +113,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.19069326, y: 0.071661785, z: 0.18100703}
-  m_Center: {x: 0.008761272, y: 0.49, z: -0.008177698}
+  m_Size: {x: 0.22090435, y: 0.0741716, z: 0.22204494}
+  m_Center: {x: 0, y: 0.03, z: 0}
 --- !u!1001 &1255598080215846910
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -144,7 +145,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5659139747349269322, guid: 34ecb44a5fec32e49af781e1989421c8, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.456
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5659139747349269322, guid: 34ecb44a5fec32e49af781e1989421c8, type: 3}
       propertyPath: m_LocalPosition.z

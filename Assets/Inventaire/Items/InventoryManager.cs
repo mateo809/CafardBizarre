@@ -27,18 +27,24 @@ public class InventoryManager : MonoBehaviour
     public List<InventorySlot> inventorySlots = new List<InventorySlot>();
     public int maxSlots = 20;
 
-    public InventorySetSlot inventoryUI;
+    [SerializeField] private InventorySetSlot inventoryUI;
+
+    private void Awake()
+    {
+        if (inventoryUI == null)
+            inventoryUI = FindObjectOfType<InventorySetSlot>();
+    }
+
     public bool AddItem(Item itemToAdd, int amount = 1, int price = 0)
     {
         if (itemToAdd == null) return false;
-
 
         if (price == 0) price = itemToAdd.priceItem;
 
         if (itemToAdd.stackable)
         {
             InventorySlot existingSlot = inventorySlots.FirstOrDefault(slot =>
-                slot.item == itemToAdd && slot.quantity < itemToAdd.maxStack);
+                slot != null && slot.item == itemToAdd && slot.quantity < itemToAdd.maxStack);
 
             if (existingSlot != null)
             {
@@ -51,7 +57,7 @@ public class InventoryManager : MonoBehaviour
                 if (amount <= 0)
                 {
                     Debug.Log($"Added {itemToAdd.itemName} x{actualAdded} to existing stack.");
-                    inventoryUI.RefreshUI(inventorySlots);
+                    if (inventoryUI != null) inventoryUI.RefreshUI(inventorySlots);
                     return true;
                 }
             }
@@ -62,6 +68,7 @@ public class InventoryManager : MonoBehaviour
             if (inventorySlots.Count >= maxSlots)
             {
                 Debug.Log("Inventory is full. Remaining items not added.");
+                if (inventoryUI != null) inventoryUI.RefreshUI(inventorySlots);
                 return false;
             }
 
@@ -74,14 +81,15 @@ public class InventoryManager : MonoBehaviour
             Debug.Log($"Added new slot for {itemToAdd.itemName} x{qtyToAdd} at price {price}.");
         }
 
-        inventoryUI.RefreshUI(inventorySlots);
+        if (inventoryUI != null) inventoryUI.RefreshUI(inventorySlots);
         return true;
     }
 
-
     public bool RemoveItem(Item itemToRemove, int amount = 1)
     {
-        InventorySlot slot = inventorySlots.FirstOrDefault(s => s.item == itemToRemove);
+        if (itemToRemove == null) return false;
+
+        InventorySlot slot = inventorySlots.FirstOrDefault(s => s != null && s.item == itemToRemove);
 
         if (slot == null)
         {
@@ -96,12 +104,11 @@ public class InventoryManager : MonoBehaviour
         }
         else
         {
-            amount -= slot.quantity;
             inventorySlots.Remove(slot);
             Debug.Log($"Removed last stack of {itemToRemove.itemName}.");
         }
 
-        inventoryUI.RefreshUI(inventorySlots);
+        if (inventoryUI != null) inventoryUI.RefreshUI(inventorySlots);
         return true;
     }
 
@@ -110,14 +117,14 @@ public class InventoryManager : MonoBehaviour
         float totalWeight = 0f;
         foreach (var slot in inventorySlots)
         {
-            totalWeight += slot.item.itemWeight * slot.quantity;
+            if (slot != null && slot.item != null)
+                totalWeight += slot.item.itemWeight * slot.quantity;
         }
         return totalWeight;
     }
 
-    public InventorySlot GetSlot(int index) 
-    { 
+    public InventorySlot GetSlot(int index)
+    {
         return inventorySlots[index];
     }
-    //public List<(Item item, int quantity)> GetAllItems() { List<(Item, int)> allItems = new List<(Item, int)>(); foreach (var slot in inventorySlots) { allItems.Add((slot.item, slot.quantity)); } return allItems; }
 }
