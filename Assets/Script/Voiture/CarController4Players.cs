@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using System.Collections.Generic;
 
 public class CarController4Players : MonoBehaviour
@@ -13,12 +14,26 @@ public class CarController4Players : MonoBehaviour
     public Transform driverSeat;
     public Transform[] passengerSeats = new Transform[3];
 
+    [Header("Input")]
+    public InputActionReference interactAction;
+
     private GameObject driverPlayer;
     private readonly List<GameObject> passengers = new List<GameObject>();
+    private GameObject nearbyPlayer;
 
     void Awake()
     {
         if (!rb) rb = GetComponent<Rigidbody>();
+    }
+
+    void OnEnable()
+    {
+        interactAction?.action.Enable();
+    }
+
+    void OnDisable()
+    {
+        interactAction?.action.Disable();
     }
 
     void Update()
@@ -27,20 +42,43 @@ public class CarController4Players : MonoBehaviour
         {
             float v = Input.GetAxis("Vertical");
             float h = Input.GetAxis("Horizontal");
-
             MoveCar(v, h);
+        }
+
+        if (interactAction != null && interactAction.action != null && interactAction.action.WasPressedThisFrame())
+        {
+            OnInteractPressed();
         }
     }
 
     void MoveCar(float vertical, float horizontal)
     {
         if (rb.linearVelocity.magnitude < maxSpeed)
-        {
             rb.AddForce(transform.forward * vertical * acceleration, ForceMode.Acceleration);
-        }
 
         float steer = horizontal * steering * Time.deltaTime;
         transform.Rotate(0f, steer, 0f);
+    }
+
+    private void OnInteractPressed()
+    {
+        if (nearbyPlayer == null) return;
+
+        if (driverPlayer == nearbyPlayer || passengers.Contains(nearbyPlayer))
+            ExitCar(nearbyPlayer);
+        else
+            TryEnterCar(nearbyPlayer);
+    }
+
+    public void SetNearbyPlayer(GameObject player)
+    {
+        nearbyPlayer = player;
+    }
+
+    public void ClearNearbyPlayer(GameObject player)
+    {
+        if (nearbyPlayer == player)
+            nearbyPlayer = null;
     }
 
     public bool TryEnterCar(GameObject player)
