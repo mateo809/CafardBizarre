@@ -10,9 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 69f7c1a065f7f934e8a73e02868b91d2, type: 3}
-  m_Name: Requin
+  m_Name: Banane
   m_EditorClassIdentifier: Assembly-CSharp::ItemSO
-  _itemName: Requin
+  _itemName: Banana
   _stackable: 0
   _maxStack: 1
-  _sprite: {fileID: 21300000, guid: 6d654079726a52d48ab7994a6d1b90a3, type: 3}
+  _sprite: {fileID: 21300000, guid: 39739f9f65a182a4c90982cf22de266a, type: 3}
+  _itemWeight: 0
+  _price: 0

@@ -132,7 +132,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 75a1de74423123049a4460ab9c7486f7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ItemPickUp
-  itemData: {fileID: 11400000, guid: c9a425baadf4fd441b07235ffe321ba2, type: 2}
+  itemData: {fileID: 11400000, guid: a826ea1953e1a7a4cade368f58e2406e, type: 2}
   amount: 1
   weight: 2
   price: 10

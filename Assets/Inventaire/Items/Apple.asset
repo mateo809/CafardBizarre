@@ -10,9 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 69f7c1a065f7f934e8a73e02868b91d2, type: 3}
-  m_Name: Crevette
+  m_Name: Apple
   m_EditorClassIdentifier: Assembly-CSharp::ItemSO
-  _itemName: Crevette
+  _itemName: Apple
   _stackable: 0
   _maxStack: 1
-  _sprite: {fileID: 21300000, guid: 88f7de20581ae764486ed2b70ab22d16, type: 3}
+  _sprite: {fileID: 21300000, guid: 6035d129f47889b498e8b5a80007eab6, type: 3}
+  _itemWeight: 0
+  _price: 0
