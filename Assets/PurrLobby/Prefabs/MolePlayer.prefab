@@ -1228,6 +1228,7 @@ GameObject:
   - component: {fileID: 6964517284329408482}
   - component: {fileID: 4797650392996860028}
   - component: {fileID: 4187974469826657822}
+  - component: {fileID: 803867099007528229}
   m_Layer: 3
   m_Name: MolePlayer
   m_TagString: Untagged
@@ -1418,7 +1419,6 @@ MonoBehaviour:
   maxHealth: 100
   invincible: 0
   healthBarPrefab: {fileID: 4834609640097087631, guid: fdbc8736852020a49b57709badcf8a1d, type: 3}
-  Stressbar: {fileID: 1448097673326905178, guid: cabe80f1677fe9b4a96bc18241ce2828, type: 3}
 --- !u!114 &665004402384869146
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1786,6 +1786,42 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BackendCaller
   authData: {fileID: 11400000, guid: f249e62255972734d9945b2972b127ef, type: 2}
   baseUrl: http://localhost:3000
+--- !u!114 &803867099007528229
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7761971533017685566}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4dab83f2260dfa84aa6ffb547de3fb5f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerVehicleController
+  _isSetup: 0
+  _prefabId: -2147483648
+  _componentIndex: -2147483648
+  _shouldBePooled: 0
+  _parent: {fileID: 0}
+  _invertedPathToNearestParent: 
+  _directChildren: []
+  _networkRules: {fileID: 0}
+  _visitiblityRules: {fileID: 0}
+  enterDistance: 5
+  vehicleLayer:
+    serializedVersion: 2
+    m_Bits: 4096
+  playerCamera: {fileID: 0}
+  cameraRotationSpeed: 3
+  moveAction: {fileID: -1680190386980627800, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  enterAction: {fileID: 1781555164194001046, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  exitAction: {fileID: 6570048186615042264, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  brakeAction: {fileID: -7471211009204490832, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  lookAction: {fileID: -5630151704836100654, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  PlayerId:
+    _value: -1
+    _ownerAuth: 0
+    _sendIntervalInSeconds: 0
 --- !u!1 &7905675892302575629
 GameObject:
   m_ObjectHideFlags: 0

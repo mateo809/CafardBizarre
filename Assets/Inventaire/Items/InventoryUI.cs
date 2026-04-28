@@ -7,44 +7,39 @@ using PurrNet;
 public class InventorySetSlot : NetworkBehaviour
 {
     public GameObject slotPrefab;
+
     [Header("Sprite par défaut quand le slot est vide")]
     public Sprite emptySprite;
 
-    private Transform slotParent;
+    private Transform _slotParent;
     private bool _initialized = false;
-
-    private void Start()
+    protected override void OnSpawned()
     {
+        base.OnSpawned();
+
         if (isOwner)
-        {
             StartCoroutine(FindParentWithRetry());
-        }
     }
 
     private IEnumerator FindParentWithRetry()
     {
-        int maxRetries = 50; 
+        int maxRetries = 50;
         int retryCount = 0;
 
         while (retryCount < maxRetries)
         {
-            GameObject parentGO = GameObject.FindWithTag("InventoryParent");
-
-            if (parentGO == null)
-            {
-                parentGO = GameObject.Find("ParentInventory");
-            }
+            GameObject parentGO = GameObject.FindWithTag("InventoryParent")
+                               ?? GameObject.Find("ParentInventory");
 
             if (parentGO != null && parentGO.activeInHierarchy)
             {
-                slotParent = parentGO.transform;
+                _slotParent = parentGO.transform;
                 _initialized = true;
 
                 if (slotPrefab != null)
                 {
                     Image img = slotPrefab.GetComponent<Image>();
-                    if (img != null)
-                        img.sprite = emptySprite;
+                    if (img != null) img.sprite = emptySprite;
                 }
 
                 Debug.Log($"[InventorySetSlot] Parent trouvé après {retryCount + 1} tentative(s) pour {gameObject.name}");
@@ -55,7 +50,8 @@ public class InventorySetSlot : NetworkBehaviour
             yield return new WaitForSeconds(0.1f);
         }
 
-        Debug.LogError($"[InventorySetSlot] Parent introuvable après 5 secondes pour {gameObject.name}! Vérifie que 'ParentInventory' a le tag 'InventoryParent' ou existe dans la scène.");
+        Debug.LogError($"[InventorySetSlot] Parent introuvable après 5 secondes pour {gameObject.name} ! " +
+                       "Vérifie que 'ParentInventory' a le tag 'InventoryParent' ou existe dans la scène.");
     }
 
     public void RefreshUI(List<InventorySlot> slots)
@@ -66,32 +62,21 @@ public class InventorySetSlot : NetworkBehaviour
             return;
         }
 
-        if (!_initialized || slotParent == null)
+        if (!_initialized || _slotParent == null)
         {
             Debug.LogWarning("[InventorySetSlot] Parent non initialisé, RefreshUI ignoré.");
             return;
         }
 
-        foreach (Transform child in slotParent)
-        {
+        foreach (Transform child in _slotParent)
             Destroy(child.gameObject);
-        }
 
         foreach (var slot in slots)
         {
-            GameObject slotGO = Instantiate(slotPrefab, slotParent);
+            GameObject slotGO = Instantiate(slotPrefab, _slotParent);
             Image icon = slotGO.GetComponentInChildren<Image>();
-
-            if (slot.item != null && slot.item.visual != null)
-            {
-                if (icon != null)
-                    icon.sprite = slot.item.visual;
-            }
-            else
-            {
-                if (icon != null)
-                    icon.sprite = emptySprite;
-            }
+            if (icon != null)
+                icon.sprite = (slot.item != null && slot.item.visual != null) ? slot.item.visual : emptySprite;
         }
     }
 }

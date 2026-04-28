@@ -135,7 +135,7 @@ MonoBehaviour:
   itemData: {fileID: 11400000, guid: a525cce49898e0047a8d53a079bea039, type: 2}
   amount: 1
   weight: 2
-  price: 10
+  price: 25
   owner: {fileID: 0}
 --- !u!114 &3804880856239072694
 MonoBehaviour:

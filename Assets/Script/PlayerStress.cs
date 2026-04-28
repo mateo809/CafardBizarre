@@ -1,7 +1,5 @@
 using UnityEngine;
-using UnityEngine.UI;
 using PurrNet;
-using System.Collections;
 
 public class PlayerStress : NetworkBehaviour
 {
@@ -12,7 +10,6 @@ public class PlayerStress : NetworkBehaviour
     [Header("UI")]
     public GameObject stressBarPrefab;
     private GameObject _stressBarInstance;
-    private Canvas _cachedCanvas;
 
     [Header("Stress Logic")]
     public float increaseRate = 20f;
@@ -23,57 +20,16 @@ public class PlayerStress : NetworkBehaviour
     {
         base.OnSpawned();
 
-        // IMPORTANT: Seulement le OWNER (client local) affiche son UI
         if (isOwner && stressBarPrefab != null)
-        {
-            StartCoroutine(SetupStressUIWithRetry());
-        }
-    }
-
-    private IEnumerator SetupStressUIWithRetry()
-    {
-        int maxRetries = 50; // Max 5 secondes
-        int retryCount = 0;
-
-        while (retryCount < maxRetries)
-        {
-            // Cherche d'abord par tag
-            GameObject canvasGO = GameObject.FindWithTag("Canvas");
-            Canvas canvas = null;
-
-            if (canvasGO != null)
-            {
-                canvas = canvasGO.GetComponent<Canvas>();
-            }
-
-            // Fallback : FindObjectOfType
-            if (canvas == null)
-            {
-                canvas = FindObjectOfType<Canvas>();
-            }
-
-            if (canvas != null && canvas.gameObject.activeInHierarchy)
-            {
-                _cachedCanvas = canvas;
-                SetupStressUI();
-                Debug.Log($"[PlayerStress] Canvas trouvé pour {gameObject.name} (tentative {retryCount + 1})");
-                yield break;
-            }
-
-            retryCount++;
-            yield return new WaitForSeconds(0.1f);
-        }
-
-        Debug.LogError($"[PlayerStress] Canvas introuvable après 5 secondes pour {gameObject.name}!");
+            StartCoroutine(UIManager.Instance.WaitUntilReady(SetupStressUI));
     }
 
     private void SetupStressUI()
     {
-        if (_cachedCanvas == null) return;
+        _stressBarInstance = UIManager.Instance.InstantiateInCanvas(stressBarPrefab);
+        if (_stressBarInstance == null) return;
 
-        _stressBarInstance = Instantiate(stressBarPrefab, _cachedCanvas.transform, false);
         StressGauge gauge = _stressBarInstance.GetComponentInChildren<StressGauge>();
-
         if (gauge != null)
             gauge.SetPlayerStress(this);
     }
@@ -84,22 +40,13 @@ public class PlayerStress : NetworkBehaviour
             Destroy(_stressBarInstance);
     }
 
-    void Update()
+    private void Update()
     {
         if (!isOwner) return;
 
-        if (_isDetected)
-        {
-            currentStress = Mathf.Clamp(currentStress + increaseRate * Time.deltaTime, 0f, 100f);
-        }
-        else
-        {
-            currentStress = Mathf.Clamp(currentStress - decreaseRate * Time.deltaTime, 0f, 100f);
-        }
+        float delta = (_isDetected ? increaseRate : -decreaseRate) * Time.deltaTime;
+        currentStress = Mathf.Clamp(currentStress + delta, 0f, 100f);
     }
 
-    public void SetDetected(bool detected)
-    {
-        _isDetected = detected;
-    }
+    public void SetDetected(bool detected) => _isDetected = detected;
 }
