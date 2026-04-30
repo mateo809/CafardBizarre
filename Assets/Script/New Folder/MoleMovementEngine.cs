@@ -2,12 +2,15 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
+#if STEAMWORKS_NET
+using Steamworks;
+#endif
 
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(SphereCollider))]
 public class RoachController1 : NetworkBehaviour
 {
-    public enum PlayerState { Grounded, Jumping, Falling, Gliding, WallClimbing, Carrying }
+    public enum PlayerState { Grounded, Jumping, Falling, Gliding, WallClimbing, Carrying, InVehicle }
     public PlayerState _currentState = PlayerState.Grounded;
 
     [Header("Movement Settings")]
@@ -70,14 +73,24 @@ public class RoachController1 : NetworkBehaviour
     [Header("Camera Prefab")]
     public GameObject cameraPrefab;
 
+    [Header("Véhicule")]
+    public InputActionReference enterVehicleAction;
+    public InputActionReference exitVehicleAction;
+    public InputActionReference brakeAction;
+    public float enterVehicleDistance = 4f;
+    public LayerMask vehicleLayer;
+
     [Header("Anti-Stuck")]
     [SerializeField] private float _stuckCheckInterval = 0.4f;
     [SerializeField] private float _stuckDistThreshold = 0.05f;
     [SerializeField] private float _stuckEjectForce = 6f;
     [SerializeField] private int _stuckMaxAttempts = 3;
 
+    public SyncVar<string> steamId = new SyncVar<string>("0");
+
     private Rigidbody rb;
     private SphereCollider sc;
+    private BackendCaller _backendCaller;
 
     private Vector3 groundNormal = Vector3.up;
     private Vector3 worldVelocity;
@@ -119,12 +132,22 @@ public class RoachController1 : NetworkBehaviour
     private float _stuckCheckTimer;
     private int _stuckAttemptCount;
 
-    private BackendCaller _backendCaller;
+    private CarControl _currentVehicle;
+    private int _currentSeat = -1;
+    private bool _isDriver => _currentSeat == 0;
+    private bool _isInVehicle => _currentVehicle != null;
 
-    protected override void OnSpawned()
+    private Collider[] _playerColliders;
+    private bool _savedKinematic;
+    private bool _savedDetectCollisions;
+
+    protected override void OnSpawned(bool asServer)
     {
-        base.OnSpawned();
-        if (!isOwner) return;
+        base.OnSpawned(asServer);
+        if (asServer || !isOwner) return;
+
+        string localSteamId = GetLocalSteamId();
+        SendSteamIdServerRpc(localSteamId);
 
         if (cameraPrefab != null)
         {
@@ -138,36 +161,45 @@ public class RoachController1 : NetworkBehaviour
         if (_backendCaller != null)
             StartCoroutine(_backendCaller.GetMe());
     }
-    private void LateUpdate()
+
+    private string GetLocalSteamId()
     {
-        if (_carriedItem != null && _transportPoint != null)
-        {
-            _carriedItem.transform.SetPositionAndRotation(
-                _transportPoint.position,
-                _transportPoint.rotation
-            );
-        }
+#if STEAMWORKS_NET
+        try { return SteamUser.GetSteamID().m_SteamID.ToString(); }
+        catch { }
+#endif
+        return "0";
     }
 
-    void Awake()
+    [ServerRpc]
+    private void SendSteamIdServerRpc(string id) => SyncSteamIdObserversRpc(id);
+
+    [ObserversRpc]
+    private void SyncSteamIdObserversRpc(string id) => steamId.value = id;
+
+    private void Awake()
     {
         rb = GetComponent<Rigidbody>();
         sc = GetComponent<SphereCollider>();
         _backendCaller = GetComponent<BackendCaller>();
+
         rb.isKinematic = true;
         rb.useGravity = false;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
-        groundNormal = Vector3.up;
 
+        groundNormal = Vector3.up;
         lastStableForward = transform.forward;
         lastStableRight = transform.right;
         lastGroundNormal = groundNormal;
+
+        _playerColliders = GetComponentsInChildren<Collider>(true);
     }
 
     private void Start()
     {
         _baseWalkSpeed = walkingSpeed;
         _lastStuckCheckPos = transform.position;
+
         if (isOwner)
             StartCoroutine(FindCanvasWithRetry());
 
@@ -175,20 +207,49 @@ public class RoachController1 : NetworkBehaviour
             _backendCaller.GetMe();
     }
 
-    void OnEnable()
+    private void OnEnable()
     {
         moveAction?.action.Enable();
         jumpAction?.action.Enable();
         sprintAction?.action.Enable();
         pickUpAction?.action.Enable();
         dropAction?.action.Enable();
+        enterVehicleAction?.action.Enable();
+        exitVehicleAction?.action.Enable();
+        brakeAction?.action.Enable();
+    }
+
+    private void OnDisable()
+    {
+        moveAction?.action.Disable();
+        jumpAction?.action.Disable();
+        sprintAction?.action.Disable();
+        pickUpAction?.action.Disable();
+        dropAction?.action.Disable();
+        enterVehicleAction?.action.Disable();
+        exitVehicleAction?.action.Disable();
+        brakeAction?.action.Disable();
     }
 
     private void Update()
     {
         if (!isOwner) return;
 
+        if (_isInVehicle)
+        {
+            if (exitVehicleAction != null && exitVehicleAction.action.WasPressedThisFrame())
+                HandleVehicleExit();
+
+            if (_isDriver)
+                HandleDriverInput();
+
+            return;
+        }
+
         _moveInput = moveAction?.action.ReadValue<Vector2>() ?? Vector2.zero;
+
+        if (enterVehicleAction != null && enterVehicleAction.action.WasPressedThisFrame())
+            HandleVehicleEnter();
 
         if (pickUpAction != null && pickUpAction.action.WasPressedThisFrame())
             OnPickUpPressed();
@@ -214,31 +275,10 @@ public class RoachController1 : NetworkBehaviour
         if (isGrounded) _lastGroundedTime = Time.time;
     }
 
-    private void OnPickUpPressed()
-    {
-        if (_carriedItem != null) return;
-        if (_pickupOrigin == null) _pickupOrigin = transform;
-
-        Vector3 origin = _pickupOrigin.position;
-        Vector3 direction = _pickupOrigin.forward;
-
-        if (Physics.Raycast(origin, direction, out RaycastHit hit, _pickupRange, _itemLayer, QueryTriggerInteraction.Ignore))
-        {
-            ItemPickUp itemPickUp = hit.collider.GetComponentInParent<ItemPickUp>();
-            if (itemPickUp != null)
-                PickUpItemServerRPC(itemPickUp.gameObject);
-        }
-    }
-
-    private void OnDropPressed()
-    {
-        if (_carriedItem == null) return;
-        DropItemServerRPC();
-    }
-
-    void FixedUpdate()
+    private void FixedUpdate()
     {
         if (!isOwner) return;
+        if (_isInVehicle) return;
 
         float angle = Vector3.Angle(lastGroundNormal, groundNormal);
         if (angle > 45f) ResetMovementAxes();
@@ -286,7 +326,6 @@ public class RoachController1 : NetworkBehaviour
         }
 
         HandleAntiStuck();
-
         UpdateState();
         UpdateRotation();
         UpdateAnimations();
@@ -294,6 +333,124 @@ public class RoachController1 : NetworkBehaviour
         UpdateCarryingFeedback();
 
         _jumpPressed = false;
+    }
+
+    private void HandleVehicleEnter()
+    {
+        Collider[] hits = Physics.OverlapSphere(transform.position, enterVehicleDistance, vehicleLayer);
+        if (hits == null || hits.Length == 0) return;
+
+        CarControl closest = null;
+        float closestDist = float.MaxValue;
+
+        foreach (var hit in hits)
+        {
+            var v = hit.GetComponentInParent<CarControl>();
+            if (v == null) continue;
+            float d = Vector3.Distance(transform.position, v.transform.position);
+            if (d < closestDist)
+            {
+                closestDist = d;
+                closest = v;
+            }
+        }
+
+        if (closest == null) return;
+        closest.Server_TrySit(this);
+    }
+
+    private void HandleVehicleExit()
+    {
+        if (_currentVehicle != null)
+            _currentVehicle.Server_TryExit(this);
+    }
+
+    private void HandleDriverInput()
+    {
+        if (_currentVehicle == null) return;
+
+        Vector2 move = moveAction != null ? moveAction.action.ReadValue<Vector2>() : Vector2.zero;
+        bool brake = brakeAction != null && brakeAction.action.IsPressed();
+
+        _currentVehicle.Server_SendDriverInput(move.y, move.x, brake);
+    }
+
+    public void OnEnteredVehicle(CarControl vehicle, int seatIndex)
+    {
+        _currentVehicle = vehicle;
+        _currentSeat = seatIndex;
+        _currentState = PlayerState.InVehicle;
+
+        Transform seat = vehicle.GetSeatTransform(seatIndex);
+
+        if (seat != null)
+        {
+            transform.SetParent(seat);
+            transform.position = seat.position;
+            transform.rotation = seat.rotation;
+
+        }
+
+        DisablePlayerPhysics();
+
+        if (_networkAnimator != null)
+            _networkAnimator.enabled = false;
+
+        var animator = GetComponentInChildren<Animator>();
+        if (animator != null)
+            animator.enabled = false;
+    }
+
+    public void OnExitedVehicle(Vector3 exitPosition)
+    {
+        _currentVehicle = null;
+        _currentSeat = -1;
+        _currentState = PlayerState.Grounded;
+
+        transform.SetParent(null, true);
+        transform.position = exitPosition;
+
+        EnablePlayerPhysics();
+
+        if (_networkAnimator != null)
+            _networkAnimator.enabled = true;
+
+        var animator = GetComponentInChildren<Animator>();
+        if (animator != null)
+            animator.enabled = true;
+
+        isGrounded = false;
+        groundNormal = Vector3.up;
+        worldVelocity = Vector3.zero;
+    }
+
+    private void DisablePlayerPhysics()
+    {
+        if (rb == null) return;
+
+        _savedKinematic = rb.isKinematic;
+        _savedDetectCollisions = rb.detectCollisions;
+
+        rb.linearVelocity = Vector3.zero;
+        rb.angularVelocity = Vector3.zero;
+        rb.isKinematic = true;
+        rb.detectCollisions = false;
+
+        foreach (var col in _playerColliders)
+            if (col != null) col.enabled = false;
+    }
+
+    private void EnablePlayerPhysics()
+    {
+        if (rb == null) return;
+
+        rb.isKinematic = _savedKinematic;
+        rb.detectCollisions = _savedDetectCollisions;
+        rb.linearVelocity = Vector3.zero;
+        rb.angularVelocity = Vector3.zero;
+
+        foreach (var col in _playerColliders)
+            if (col != null) col.enabled = true;
     }
 
     private void HandleAntiStuck()
@@ -337,16 +494,11 @@ public class RoachController1 : NetworkBehaviour
         Vector3 sumNormal = Vector3.zero;
         int count = 0;
 
-        Vector3[] probes = {
-            Vector3.up, Vector3.down,
-            Vector3.left, Vector3.right,
-            Vector3.forward, Vector3.back
-        };
+        Vector3[] probes = { Vector3.up, Vector3.down, Vector3.left, Vector3.right, Vector3.forward, Vector3.back };
 
         foreach (var dir in probes)
         {
             int hits = Physics.SphereCastNonAlloc(origin, sc.radius, dir, hitCache, probeR, collisionMask, QueryTriggerInteraction.Ignore);
-
             for (int i = 0; i < hits; i++)
             {
                 var h = hitCache[i];
@@ -528,18 +680,6 @@ public class RoachController1 : NetworkBehaviour
             worldVelocity += Vector3.down * g * Time.fixedDeltaTime;
             groundNormal = Vector3.Slerp(groundNormal, Vector3.up, Time.fixedDeltaTime * 3f);
         }
-        else
-        {
-            float pen = Vector3.Dot(worldVelocity, groundNormal);
-            if (pen < 0f) worldVelocity -= pen * groundNormal;
-        }
-
-        if (_currentState == PlayerState.Gliding)
-        {
-            float fall = Vector3.Dot(worldVelocity, Vector3.down);
-            if (fall > -_glideFallRate)
-                worldVelocity.y = Mathf.MoveTowards(worldVelocity.y, _glideFallRate, Time.fixedDeltaTime * 5f);
-        }
 
         bool canJump = isGrounded || (Time.time - _lastGroundedTime) <= _coyoteTime;
 
@@ -564,23 +704,16 @@ public class RoachController1 : NetworkBehaviour
             jumpCooldownTimer = _jumpCooldown;
         }
 
-        if (_jumpPressed && _currentState == PlayerState.WallClimbing && _carriedItem == null)
-        {
-            Vector3 pushDir = (groundNormal + Vector3.up * 0.5f).normalized;
-            worldVelocity = pushDir * (jumpVelocity * _jumpPowerMultiplier);
-            _nextJumpTime = Time.time + _jumpCooldown;
-        }
-
         if (!_jumpHeld && worldVelocity.y > 0f)
             worldVelocity.y = Mathf.MoveTowards(worldVelocity.y, 0f, _gravityStrength * 2.5f * Time.fixedDeltaTime);
     }
 
     private void UpdateState()
     {
+        if (_isInVehicle) { _currentState = PlayerState.InVehicle; return; }
         if (_isCarryingObject) { _currentState = PlayerState.Carrying; return; }
 
-        if (isGrounded)
-            _currentState = PlayerState.Grounded;
+        if (isGrounded) _currentState = PlayerState.Grounded;
         else
         {
             float slopeAngle = Vector3.Angle(groundNormal, Vector3.up);
@@ -592,6 +725,8 @@ public class RoachController1 : NetworkBehaviour
 
     private void UpdateRotation()
     {
+        if (_isInVehicle) return;
+
         Vector3 up = groundNormal;
         float dt = Time.fixedDeltaTime;
         float surfaceAngle = Vector3.Angle(groundNormal, Vector3.up);
@@ -624,18 +759,35 @@ public class RoachController1 : NetworkBehaviour
     private void UpdateAnimations()
     {
         if (_networkAnimator == null) return;
+        if (_isInVehicle) return;
 
         bool carrying = _isCarryingObject || _carriedItem != null;
         bool moving = _moveInput.sqrMagnitude > 0.01f;
         bool grounded = isGrounded;
         bool wallClimb = !grounded && Vector3.Angle(groundNormal, Vector3.up) > _maxSlopeAngle;
 
-        bool run = grounded && moving && !carrying;
-        bool fly = !grounded && !wallClimb && !carrying;
-
         _networkAnimator.SetBool("Item", carrying);
-        _networkAnimator.SetBool("Run", run);
-        _networkAnimator.SetBool("Fly", fly);
+        _networkAnimator.SetBool("Run", grounded && moving && !carrying);
+        _networkAnimator.SetBool("Fly", !grounded && !wallClimb && !carrying);
+    }
+
+    private void OnPickUpPressed()
+    {
+        if (_carriedItem != null) return;
+        if (_pickupOrigin == null) _pickupOrigin = transform;
+
+        if (Physics.Raycast(_pickupOrigin.position, _pickupOrigin.forward, out RaycastHit hit, _pickupRange, _itemLayer, QueryTriggerInteraction.Ignore))
+        {
+            ItemPickUp itemPickUp = hit.collider.GetComponentInParent<ItemPickUp>();
+            if (itemPickUp != null)
+                PickUpItemServerRPC(itemPickUp.gameObject);
+        }
+    }
+
+    private void OnDropPressed()
+    {
+        if (_carriedItem == null) return;
+        DropItemServerRPC();
     }
 
     [ServerRpc]
@@ -751,15 +903,12 @@ public class RoachController1 : NetworkBehaviour
         }
 
         _isInPickupRange = found;
-
-        if (_pickupFeedbackInstance)
-            _pickupFeedbackInstance.SetActive(_isInPickupRange);
+        if (_pickupFeedbackInstance) _pickupFeedbackInstance.SetActive(_isInPickupRange);
     }
 
     private void UpdateCarryingFeedback()
     {
-        if (_carryingFeedbackInstance)
-            _carryingFeedbackInstance.SetActive(_carriedItem != null);
+        if (_carryingFeedbackInstance) _carryingFeedbackInstance.SetActive(_carriedItem != null);
     }
 
     private IEnumerator FindCanvasWithRetry()
@@ -812,6 +961,5 @@ public class RoachController1 : NetworkBehaviour
     public bool IsGrounded => isGrounded;
     public Vector3 GroundNormal => groundNormal;
     public void AddVelocity(Vector3 vel) => worldVelocity += vel;
-    public Collider GetCarriedCollider()
-        => carriedObject != null ? carriedObject.GetComponent<Collider>() : null;
+    public Collider GetCarriedCollider() => carriedObject != null ? carriedObject.GetComponent<Collider>() : null;
 }
