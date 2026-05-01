@@ -12,12 +12,19 @@ public class PlayerHealth : NetworkBehaviour
     public float maxHealth = 100f;
     public bool invincible = false;
 
+    [Header("Regeneration")]
+    [SerializeField] private float regenDelay = 5f;
+    [SerializeField] private float regenPerSecond = 10f;
+
     [Header("UI")]
     public GameObject healthBarPrefab;
 
     private Slider _healthSlider;
     private GameObject _healthBarInstance;
     private HealthBarUI _healthBarUI;
+
+    private float _timeSinceLastDamage;
+    private bool _isRegenerating;
 
     protected override void OnSpawned()
     {
@@ -27,9 +34,43 @@ public class PlayerHealth : NetworkBehaviour
             AllPlayers.Add(this);
 
         currentHealth = maxHealth;
+        _timeSinceLastDamage = 0f;
+        _isRegenerating = false;
 
         if (isOwner && healthBarPrefab != null)
             StartCoroutine(UIManager.Instance.WaitUntilReady(SetupHealthUI));
+    }
+
+    private void Update()
+    {
+        if (!isOwner) return;
+
+        if (currentHealth < maxHealth)
+        {
+            _timeSinceLastDamage += Time.deltaTime;
+
+            if (_timeSinceLastDamage >= regenDelay)
+            {
+                _isRegenerating = true;
+                currentHealth = Mathf.MoveTowards(
+                    currentHealth,
+                    maxHealth,
+                    regenPerSecond * Time.deltaTime
+                );
+                UpdateHealthUI();
+
+                if (currentHealth >= maxHealth)
+                {
+                    currentHealth = maxHealth;
+                    _isRegenerating = false;
+                }
+            }
+        }
+        else
+        {
+            _timeSinceLastDamage = 0f;
+            _isRegenerating = false;
+        }
     }
 
     private void SetupHealthUI()
@@ -64,6 +105,9 @@ public class PlayerHealth : NetworkBehaviour
         currentHealth = Mathf.Clamp(currentHealth - amount, 0f, maxHealth);
         UpdateHealthUI();
 
+        _timeSinceLastDamage = 0f;
+        _isRegenerating = false;
+
         if (currentHealth <= 0f)
             Die();
     }
@@ -81,6 +125,12 @@ public class PlayerHealth : NetworkBehaviour
     {
         if (isOwner)
         {
+            AudioController.Instance.PlaySound(
+                AudioType.Die,
+                AudioSourceType.Player,
+                transform.position
+            );
+
             SpectatorController spectator = FindAnyObjectByType<SpectatorController>();
             if (spectator != null)
                 spectator.ActivateSpectator(this);

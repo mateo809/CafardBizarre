@@ -21,6 +21,10 @@ public class RoachController1 : NetworkBehaviour
     public int maxBounces = 6;
     public LayerMask collisionMask = ~0;
 
+    [Header("Audio")]
+    [SerializeField] private float stepInterval = 0.4f;
+    private float stepTimer;
+
     [Header("Sprint")]
     [SerializeField] private float _sprintMultiplier = 1.5f;
 
@@ -346,8 +350,25 @@ public class RoachController1 : NetworkBehaviour
         UpdateAnimations();
         CheckPickupRangeFeedback();
         UpdateCarryingFeedback();
-
+        HandleFootsteps();
         _jumpPressed = false;
+    }
+
+    private void HandleFootsteps()
+    {
+        if (!isOwner) return; // important : seul le joueur local envoie
+
+        if (!isGrounded) return;
+        if (_moveInput.sqrMagnitude < 0.1f) return;
+
+        stepTimer -= Time.fixedDeltaTime;
+
+        if (stepTimer <= 0f)
+        {
+            stepTimer = stepInterval;
+
+            PlayStepServerRpc(transform.position);
+        }
     }
 
     private void HandleVehicleEnter()
@@ -863,6 +884,30 @@ public class RoachController1 : NetworkBehaviour
         _carriedItemNetworkId = item.GetComponent<NetworkIdentity>();
 
         ApplyCarrySpeedModifier();
+
+        AudioController.Instance.PlaySound(
+    AudioType.PickItem,
+    AudioSourceType.Player,
+    transform.position
+);
+    }
+
+    [ServerRpc]
+    private void PlayStepServerRpc(Vector3 pos)
+    {
+        PlayStepObserversRpc(pos);
+    }
+
+    [ObserversRpc]
+    private void PlayStepObserversRpc(Vector3 pos)
+    {
+        if (AudioController.Instance == null) return;
+
+        AudioController.Instance.PlaySound(
+            AudioType.Step,
+            AudioSourceType.Player,
+            pos
+        );
     }
 
     [ServerRpc]
@@ -913,6 +958,12 @@ public class RoachController1 : NetworkBehaviour
         _carriedItemNetworkId = null;
         carriedObject = null;
         _currentState = PlayerState.Grounded;
+
+        AudioController.Instance.PlaySound(
+    AudioType.DropItem,
+    AudioSourceType.Player,
+    transform.position
+);
     }
 
     public void PickUpItem(GameObject item) => PickUpItemServerRPC(item);

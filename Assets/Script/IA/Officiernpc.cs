@@ -12,6 +12,10 @@ namespace OfficeAI
     [RequireComponent(typeof(NetworkAnimator))]
     public class OfficerNPC : NetworkBehaviour
     {
+        [Header("Audio")]
+        [SerializeField] private float stepInterval = 0.5f;
+        private float stepTimer;
+
         [Header("Détection")]
         [SerializeField] private float sightRange = 10f;
         [SerializeField] private float sightAngle = 180f;
@@ -201,6 +205,7 @@ namespace OfficeAI
         {
             if (isServer && _tree != null && _bb != null)
             {
+                HandleFootsteps();
                 CheckWorkingTimeout();
                 UpdateWorkCycle();
                 DetectPlayer();
@@ -213,6 +218,34 @@ namespace OfficeAI
             }
 
             UpdateAnimator();
+        }
+        private void HandleFootsteps()
+        {
+            if (!_agent.enabled) return;
+
+            bool isMoving =
+                !_agent.isStopped &&
+                _agent.hasPath &&
+                _agent.velocity.sqrMagnitude > 0.1f;
+
+            if (!isMoving) return;
+
+            stepTimer -= Time.deltaTime;
+
+            if (stepTimer <= 0f)
+            {
+                stepTimer = stepInterval;
+
+                PlayStepObserversRpc(transform.position);
+            }
+        }
+
+        [ObserversRpc]
+        private void PlayStepObserversRpc(Vector3 pos)
+        {
+            if (AudioController.Instance == null) return;
+
+            AudioController.Instance.PlayLoopedSound(AudioType.mobStep, AudioSourceType.Mob);
         }
 
         private void UpdateWorkCycle()
@@ -1040,11 +1073,12 @@ namespace OfficeAI
             if (_playerTarget == null) return;
 
             if (_playerTarget.TryGetComponent<PlayerVacuumReceiver>(out var receiver))
-                receiver.ReceiveVacuumForce(force);
+                receiver.ReceiveVacuumForce(force,vacuumObject.transform);
         }
 
         private void StopAttack()
         {
+
             _isAttacking = false;
             SetAttack(false);
             _agent.isStopped = false;

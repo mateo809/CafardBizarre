@@ -20,6 +20,10 @@ public class CarControl : NetworkBehaviour
     [Header("Sièges")]
     public Transform[] seatPoints = new Transform[4];
 
+    [Header("Audio")]
+    [SerializeField] private AudioType carAudioType = AudioType.Car;
+    [SerializeField] private AudioSourceType carAudioSourceType = AudioSourceType.Game;
+
     private readonly SyncVar<string> seat0 = new SyncVar<string>("");
     private readonly SyncVar<string> seat1 = new SyncVar<string>("");
     private readonly SyncVar<string> seat2 = new SyncVar<string>("");
@@ -31,6 +35,7 @@ public class CarControl : NetworkBehaviour
 
     private Rigidbody _rb;
     private float _currentTurnAngle = 0f;
+    private bool _radioPlayed;
 
     private void Awake()
     {
@@ -90,7 +95,10 @@ public class CarControl : NetworkBehaviour
         SetSeatOccupant(freeSeat, id);
 
         if (freeSeat == 0)
+        {
             GiveOwnership(player.owner, false);
+            PlayCarSound();
+        }
 
         syncedBrake.value = false;
         Observers_OnEntered(player.gameObject, freeSeat);
@@ -143,6 +151,7 @@ public class CarControl : NetworkBehaviour
     private void Observers_OnEntered(GameObject playerGo, int seatIndex)
     {
         if (playerGo == null) return;
+
         var player = playerGo.GetComponent<RoachController1>();
         if (player != null)
             player.OnEnteredVehicle(this, seatIndex);
@@ -152,9 +161,11 @@ public class CarControl : NetworkBehaviour
     private void Observers_OnExited(GameObject playerGo, Vector3 exitPos)
     {
         if (playerGo == null) return;
+
         var player = playerGo.GetComponent<RoachController1>();
         if (player != null)
             player.OnExitedVehicle(exitPos);
+        StopCarSound();
     }
 
     private void ApplyDrive(float motor, float steer, bool brake)
@@ -220,5 +231,23 @@ public class CarControl : NetworkBehaviour
             return transform.position + transform.right * 2f;
 
         return seatPoints[seatIndex].position + transform.right * 2f;
+    }
+
+    // CORRECTION : PlayLoopedSound au lieu de PlaySound
+    private void PlayCarSound()
+    {
+        if (_radioPlayed) return;
+        _radioPlayed = true;
+
+        AudioController.Instance.PlayLoopedSound(carAudioType, carAudioSourceType);
+    }
+
+    // CORRECTION : carAudioType au lieu de AudioType.Car en dur
+    private void StopCarSound()
+    {
+        if (!_radioPlayed) return;
+        _radioPlayed = false;
+
+        AudioController.Instance.StopSound(carAudioType);
     }
 }

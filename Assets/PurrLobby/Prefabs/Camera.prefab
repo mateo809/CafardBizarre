@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 2905747852347023648}
   - component: {fileID: 5722397779721801638}
   - component: {fileID: 8790531569001719133}
+  - component: {fileID: -4434073579014426226}
   m_Layer: 0
   m_Name: Camera
   m_TagString: MainCamera
@@ -148,17 +149,22 @@ MonoBehaviour:
   mouseSensitivity: 0.1
   rotationSmoothSpeed: 5
   followSmoothSpeed: 5
-  surfaceAlignSpeed: 8
-  pitchSmoothSpeed: 10
   minPitch: -60
   maxPitch: 70
   minDistance: 1
   maxDistance: 5
   zoomSmoothSpeed: 1
-  collisionMask:
+  _cameraRadius: 0.25
+  _wallZoomSpeed: 15
+  _collisionMask:
     serializedVersion: 2
     m_Bits: 4294967295
-  cameraRadius: 0.25
-  collisionBuffer: 0.05
-  normalDeadZone: 0.02
-  normalChangeClamp: 35
+  _minWallDistance: 0.8
+--- !u!81 &-4434073579014426226
+AudioListener:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5458803783899251543}
+  m_Enabled: 1

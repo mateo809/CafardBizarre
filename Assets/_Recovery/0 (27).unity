@@ -11291,7 +11291,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 7caeddc0a7ead9f49ba9f5c624a89e77, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 0.5
+  m_Volume: 1
   m_Pitch: 1
   Loop: 1
   Mute: 0
@@ -30009,7 +30009,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
-  m_Volume: 0.25
+  m_Volume: 1
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -37857,7 +37857,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
-  m_Volume: 0.3
+  m_Volume: 0.045
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -51200,7 +51200,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1e03b909d1bd1704492dafb529e7291f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AudioController
-  volume: 2
+  volume: 1
   gameSource: {fileID: 771525069}
   playerSource: {fileID: 1843466956}
   mobSource: {fileID: 978484602}
@@ -51221,12 +51221,6 @@ MonoBehaviour:
     type: 6
   - clip: {fileID: 8300000, guid: d8d5fc5496fb3f44d9e17af21d30928c, type: 3}
     type: 7
-  - clip: {fileID: 8300000, guid: 3a67f416fc47bc745aef1ed556457111, type: 3}
-    type: 8
-  - clip: {fileID: 8300000, guid: 8f2376ca315a2a748ae01e7c8c1921af, type: 3}
-    type: 10
-  - clip: {fileID: 8300000, guid: 8dfdf9beb74e7f546ac60cdbc4c04049, type: 3}
-    type: 9
 --- !u!4 &1317949747
 Transform:
   m_ObjectHideFlags: 0
@@ -55731,163 +55725,7 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 406654488547587606, guid: e2c4287a936a99c4d9988378e62d0060, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1449221148}
-    - targetCorrespondingSourceObject: {fileID: 4805012101508877112, guid: e2c4287a936a99c4d9988378e62d0060, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1430362783}
-    - targetCorrespondingSourceObject: {fileID: 3980973113619223183, guid: e2c4287a936a99c4d9988378e62d0060, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1430362782}
-    - targetCorrespondingSourceObject: {fileID: 2972327636612049143, guid: e2c4287a936a99c4d9988378e62d0060, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1430362781}
-    - targetCorrespondingSourceObject: {fileID: 3365607804027095504, guid: e2c4287a936a99c4d9988378e62d0060, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1430362780}
   m_SourcePrefab: {fileID: 100100000, guid: e2c4287a936a99c4d9988378e62d0060, type: 3}
---- !u!1 &1430362776 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 3365607804027095504, guid: e2c4287a936a99c4d9988378e62d0060, type: 3}
-  m_PrefabInstance: {fileID: 1430362775}
-  m_PrefabAsset: {fileID: 0}
---- !u!1 &1430362777 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 2972327636612049143, guid: e2c4287a936a99c4d9988378e62d0060, type: 3}
-  m_PrefabInstance: {fileID: 1430362775}
-  m_PrefabAsset: {fileID: 0}
---- !u!1 &1430362778 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 3980973113619223183, guid: e2c4287a936a99c4d9988378e62d0060, type: 3}
-  m_PrefabInstance: {fileID: 1430362775}
-  m_PrefabAsset: {fileID: 0}
---- !u!1 &1430362779 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 4805012101508877112, guid: e2c4287a936a99c4d9988378e62d0060, type: 3}
-  m_PrefabInstance: {fileID: 1430362775}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &1430362780
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1430362776}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 817fe5016bd0a2a49a95b6eb338bb132, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PurrNet.Runtime::PurrNet.NetworkTransform
-  _isSetup: 0
-  _prefabId: -2147483648
-  _componentIndex: -2147483648
-  _shouldBePooled: 0
-  _parent: {fileID: 0}
-  _invertedPathToNearestParent: 
-  _directChildren: []
-  _networkRules: {fileID: 0}
-  _visitiblityRules: {fileID: 0}
-  _syncPosition: 1
-  _syncRotation: 1
-  _syncScale: 1
-  _syncParent: 1
-  _interpolateSettings: 7
-  _minBufferSize: 1
-  _maxBufferSize: 2
-  _characterControllerPatch: 0
-  _ownerAuth: 1
-  _interpolationTiming: 0
---- !u!114 &1430362781
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1430362777}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 817fe5016bd0a2a49a95b6eb338bb132, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PurrNet.Runtime::PurrNet.NetworkTransform
-  _isSetup: 0
-  _prefabId: -2147483648
-  _componentIndex: -2147483648
-  _shouldBePooled: 0
-  _parent: {fileID: 0}
-  _invertedPathToNearestParent: 
-  _directChildren: []
-  _networkRules: {fileID: 0}
-  _visitiblityRules: {fileID: 0}
-  _syncPosition: 1
-  _syncRotation: 1
-  _syncScale: 1
-  _syncParent: 1
-  _interpolateSettings: 7
-  _minBufferSize: 1
-  _maxBufferSize: 2
-  _characterControllerPatch: 0
-  _ownerAuth: 1
-  _interpolationTiming: 0
---- !u!114 &1430362782
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1430362778}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 817fe5016bd0a2a49a95b6eb338bb132, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PurrNet.Runtime::PurrNet.NetworkTransform
-  _isSetup: 0
-  _prefabId: -2147483648
-  _componentIndex: -2147483648
-  _shouldBePooled: 0
-  _parent: {fileID: 0}
-  _invertedPathToNearestParent: 
-  _directChildren: []
-  _networkRules: {fileID: 0}
-  _visitiblityRules: {fileID: 0}
-  _syncPosition: 1
-  _syncRotation: 1
-  _syncScale: 1
-  _syncParent: 1
-  _interpolateSettings: 7
-  _minBufferSize: 1
-  _maxBufferSize: 2
-  _characterControllerPatch: 0
-  _ownerAuth: 1
-  _interpolationTiming: 0
---- !u!114 &1430362783
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1430362779}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 817fe5016bd0a2a49a95b6eb338bb132, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PurrNet.Runtime::PurrNet.NetworkTransform
-  _isSetup: 0
-  _prefabId: -2147483648
-  _componentIndex: -2147483648
-  _shouldBePooled: 0
-  _parent: {fileID: 0}
-  _invertedPathToNearestParent: 
-  _directChildren: []
-  _networkRules: {fileID: 0}
-  _visitiblityRules: {fileID: 0}
-  _syncPosition: 1
-  _syncRotation: 1
-  _syncScale: 1
-  _syncParent: 1
-  _interpolateSettings: 7
-  _minBufferSize: 1
-  _maxBufferSize: 2
-  _characterControllerPatch: 0
-  _ownerAuth: 1
-  _interpolationTiming: 0
 --- !u!1001 &1431423346
 PrefabInstance:
   m_ObjectHideFlags: 0
