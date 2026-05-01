@@ -21,6 +21,8 @@ public class RoachController1 : NetworkBehaviour
     public int maxBounces = 6;
     public LayerMask collisionMask = ~0;
 
+    private PlayerState _previousState;
+
     [Header("Audio")]
     [SerializeField] private float stepInterval = 0.4f;
     private float stepTimer;
@@ -345,13 +347,34 @@ public class RoachController1 : NetworkBehaviour
         }
 
         HandleAntiStuck();
+        _previousState = _currentState;
         UpdateState();
+        HandleGlideAudio();
         UpdateRotation();
         UpdateAnimations();
         CheckPickupRangeFeedback();
         UpdateCarryingFeedback();
         HandleFootsteps();
         _jumpPressed = false;
+    }
+
+    private void HandleGlideAudio()
+    {
+        bool wasGliding = _previousState == PlayerState.Gliding;
+        bool isGliding = _currentState == PlayerState.Gliding;
+
+        if (!wasGliding && isGliding)
+        {
+            AudioController.Instance.PlayLoopedSound(
+                AudioType.Fly,
+                AudioSourceType.Player
+            );
+        }
+
+        if (wasGliding && !isGliding)
+        {
+            AudioController.Instance.StopSound(AudioType.Fly);
+        }
     }
 
     private void HandleFootsteps()
