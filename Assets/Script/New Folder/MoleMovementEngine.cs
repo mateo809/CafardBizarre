@@ -160,6 +160,7 @@ public class RoachController1 : NetworkBehaviour
 
         if (_backendCaller != null)
             StartCoroutine(_backendCaller.GetMe());
+
     }
 
     private string GetLocalSteamId()
@@ -275,6 +276,20 @@ public class RoachController1 : NetworkBehaviour
         if (isGrounded) _lastGroundedTime = Time.time;
     }
 
+    private void LateUpdate()
+    {
+        // Suivi du siège chaque frame : colle le joueur sur le siège sans SetParent
+        // Fonctionne même si la voiture bouge, tourne ou est secouée
+        if (!_isInVehicle || _currentVehicle == null) return;
+
+        Transform seat = _currentVehicle.GetSeatTransform(_currentSeat);
+        if (seat == null) return;
+
+        rb.position = seat.position;
+        rb.rotation = seat.rotation;
+        transform.SetPositionAndRotation(seat.position, seat.rotation);
+    }
+
     private void FixedUpdate()
     {
         if (!isOwner) return;
@@ -381,17 +396,18 @@ public class RoachController1 : NetworkBehaviour
         _currentSeat = seatIndex;
         _currentState = PlayerState.InVehicle;
 
-        Transform seat = vehicle.GetSeatTransform(seatIndex);
+        // 1. Désactiver physique EN PREMIER (colliders off, rb kinematic, vélocités = 0)
+        DisablePlayerPhysics();
 
+        // 2. Snap immédiat au siège — PAS de SetParent pour éviter les bugs rb/interpolation
+        //    Le suivi en temps réel est assuré par LateUpdate via _currentVehicle
+        Transform seat = vehicle.GetSeatTransform(seatIndex);
         if (seat != null)
         {
-            transform.SetParent(seat);
-            transform.position = seat.position;
-            transform.rotation = seat.rotation;
-
+            rb.position = seat.position;
+            rb.rotation = seat.rotation;
+            transform.SetPositionAndRotation(seat.position, seat.rotation);
         }
-
-        DisablePlayerPhysics();
 
         if (_networkAnimator != null)
             _networkAnimator.enabled = false;
@@ -403,14 +419,29 @@ public class RoachController1 : NetworkBehaviour
 
     public void OnExitedVehicle(Vector3 exitPosition)
     {
+        // 1. Reset de l'état AVANT de réactiver quoi que ce soit
+        var prevVehicle = _currentVehicle;
         _currentVehicle = null;
         _currentSeat = -1;
         _currentState = PlayerState.Grounded;
 
-        transform.SetParent(null, true);
-        transform.position = exitPosition;
-
+        // 2. Réactiver la physique (colliders on, rb redevient kinematic comme avant)
         EnablePlayerPhysics();
+
+        // 3. Placer proprement via rb.position + transform pour bypasser l'interpolation
+        //    On force une rotation propre (X=0, Z=0) pour ne pas hériter de la rotation du siège
+        Quaternion cleanRot = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
+        rb.position = exitPosition;
+        rb.rotation = cleanRot;
+        transform.SetPositionAndRotation(exitPosition, cleanRot);
+
+        // 4. Reset mouvement complet
+        isGrounded = false;
+        groundNormal = Vector3.up;
+        worldVelocity = Vector3.zero;
+        lastStableForward = transform.forward;
+        lastStableRight = transform.right;
+        lastGroundNormal = Vector3.up;
 
         if (_networkAnimator != null)
             _networkAnimator.enabled = true;
@@ -418,10 +449,6 @@ public class RoachController1 : NetworkBehaviour
         var animator = GetComponentInChildren<Animator>();
         if (animator != null)
             animator.enabled = true;
-
-        isGrounded = false;
-        groundNormal = Vector3.up;
-        worldVelocity = Vector3.zero;
     }
 
     private void DisablePlayerPhysics()

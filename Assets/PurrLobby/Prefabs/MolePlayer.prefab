@@ -1367,23 +1367,22 @@ MonoBehaviour:
   pickupFeedbackPrefab: {fileID: 4282804885652951674, guid: 8ce9a902f5559f84fab2d23af246838a, type: 3}
   carryingFeedbackPrefab: {fileID: 3834762427110480492, guid: 4af4bba493838c945abc13629d20a5bd, type: 3}
   cameraPrefab: {fileID: 5458803783899251543, guid: 672672405c59f2a47a2dea6e86679b11, type: 3}
-  _stuckCheckInterval: 0.4
-  _stuckDistThreshold: 0.05
-  _stuckEjectForce: 6
-  _stuckMaxAttempts: 3
   enterVehicleAction: {fileID: 1781555164194001046, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   exitVehicleAction: {fileID: 6570048186615042264, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   brakeAction: {fileID: -2099379676528639254, guid: 052faaac586de48259a63d0c4782560b, type: 3}
-  lookAction: {fileID: -5630151704836100654, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   enterVehicleDistance: 4
   vehicleLayer:
     serializedVersion: 2
     m_Bits: 4096
-  carriedObject: {fileID: 0}
+  _stuckCheckInterval: 0.4
+  _stuckDistThreshold: 0.05
+  _stuckEjectForce: 6
+  _stuckMaxAttempts: 3
   steamId:
     _value: 0
     _ownerAuth: 0
     _sendIntervalInSeconds: 0
+  carriedObject: {fileID: 0}
 --- !u!114 &1095739838356865602
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1781,7 +1780,8 @@ MonoBehaviour:
   _visitiblityRules: {fileID: 0}
   maxAttractionSpeed: 25
   resistanceForce: 5
-  vacuumIndicatorUI: {fileID: 0}
+  vacuumIndicatorUIPrefab: {fileID: 8910030949238910880, guid: fd1428fb26b2f5a4c914b57e2560a06b, type: 3}
+  vacuumIndicator3DPrefab: {fileID: 7587190232419574783, guid: 6d01006a1d78154408d3eacc6430c425, type: 3}
   vacuumSound: {fileID: 0}
 --- !u!114 &4187974469826657822
 MonoBehaviour:

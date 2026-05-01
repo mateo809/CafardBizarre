@@ -1,5 +1,4 @@
 using PurrNet;
-using TMPro;
 using UnityEngine;
 
 public class GlobalEconomyManager : NetworkBehaviour
@@ -16,7 +15,7 @@ public class GlobalEconomyManager : NetworkBehaviour
     [SerializeField] private int expectedPlayerCount = 2;
     private int _currentPlayerCount = 0;
 
-    private static GlobalEconomyManager _instance;
+    public static GlobalEconomyManager _instance;
 
     protected override void OnSpawned()
     {
@@ -31,13 +30,14 @@ public class GlobalEconomyManager : NetworkBehaviour
 
     private void Update()
     {
+        // Seul le serveur gère la logique de démarrage du timer
         if (!isServer) return;
 
         if (!timerStarted.value && IntroManager.IntroFinished)
         {
             CountPlayers();
 
-            if (_currentPlayerCount >= expectedPlayerCount)
+            if (_currentPlayerCount >= expectedPlayerCount && _currentPlayerCount > 0)
             {
                 StartTimer();
             }
@@ -46,23 +46,20 @@ public class GlobalEconomyManager : NetworkBehaviour
 
     private void CountPlayers()
     {
-        _currentPlayerCount = FindObjectsByType<NetworkIdentity>(FindObjectsSortMode.None).Length;
-
         int playerCount = 0;
         foreach (var identity in FindObjectsByType<NetworkIdentity>(FindObjectsSortMode.None))
         {
-            // Compte seulement les objets qui ont un PlayerHealth (= c'est un joueur)
             if (identity.GetComponent<PlayerHealth>() != null)
             {
                 playerCount++;
             }
         }
-
         _currentPlayerCount = playerCount;
     }
 
     private void StartTimer()
     {
+        // On définit le point de départ en utilisant le temps de la simulation serveur
         serverStartTime.value = Time.time;
         timerStarted.value = true;
         Debug.Log($"[GlobalEconomyManager] Timer démarré! {_currentPlayerCount} joueurs détectés.");
@@ -72,8 +69,9 @@ public class GlobalEconomyManager : NetworkBehaviour
     {
         if (!timerStarted.value || serverStartTime.value < 0) return 0f;
 
-        // TOUS les clients utilisent le MÊME serverStartTime reçu du serveur
-        return Time.realtimeSinceStartup - serverStartTime.value;
+        // On utilise Time.time qui est synchronisé par le serveur via la SyncVar
+        // Tous les clients effectuent ce calcul avec la même référence de départ
+        return Time.time - serverStartTime.value;
     }
 
     public float GetRemainingTime()
@@ -82,6 +80,7 @@ public class GlobalEconomyManager : NetworkBehaviour
         return Mathf.Max(0, TimeDuration.value - GetElapsedTime());
     }
 
+    [ServerRpc]
     public void AddMoneyServerRpc(int amount)
     {
         if (isServer)
