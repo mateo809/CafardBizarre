@@ -219,12 +219,12 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4002215677451352476}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 519d46109f8f19347b5fa6f517ebc78b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SkinSlotUI
-  _previewIcon: {fileID: 4739489864831013556}
+  _previewIcon: {fileID: 0}
   _skinNameText: {fileID: 0}
   _lockedOverlay: {fileID: 0}
   _selectedOutline: {fileID: 0}
@@ -666,12 +666,12 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8858796905185353861}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 519d46109f8f19347b5fa6f517ebc78b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SkinSlotUI
-  _previewIcon: {fileID: 8877890267766110269}
+  _previewIcon: {fileID: 0}
   _skinNameText: {fileID: 0}
   _lockedOverlay: {fileID: 0}
   _selectedOutline: {fileID: 0}

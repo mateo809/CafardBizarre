@@ -1,11 +1,6 @@
 using UnityEngine;
 using PurrNet;
 
-/// <summary>
-/// À placer sur le prefab joueur aux côtés de PlayerSkinAttachment.
-/// Lit le skin sauvegardé en PlayerPrefs et l'applique automatiquement
-/// quand le joueur est spawné et qu'il en est le owner.
-/// </summary>
 [RequireComponent(typeof(PlayerSkinAttachment))]
 public class SkinApplierOnSpawn : NetworkBehaviour
 {
@@ -15,9 +10,12 @@ public class SkinApplierOnSpawn : NetworkBehaviour
     {
         base.OnSpawned(asServer);
 
-        if (!isOwner) return;
+        if (!isOwner)
+            return;
 
         string skinId = PlayerPrefs.GetString(SELECTED_SKIN_PREF, "");
+        Debug.Log($"[SkinApplier] Loaded skinId = '{skinId}'");
+
         if (string.IsNullOrEmpty(skinId))
         {
             Debug.Log("[SkinApplier] Aucun skin sauvegardé.");
@@ -25,6 +23,12 @@ public class SkinApplierOnSpawn : NetworkBehaviour
         }
 
         var attachment = GetComponent<PlayerSkinAttachment>();
+        if (attachment == null)
+        {
+            Debug.LogWarning("[SkinApplier] PlayerSkinAttachment manquant.");
+            return;
+        }
+
         attachment.ApplySkin(skinId);
         Debug.Log($"[SkinApplier] Skin appliqué au spawn : {skinId}");
     }
