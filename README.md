@@ -328,7 +328,7 @@ Expose `getMe` : récupère l'utilisateur connecté en base via son `userId` (is
 | Connexion PostgreSQL | ✅ Fonctionnel |
 | JWT (login / vérification) | ✅ Fonctionnel |
 | Route `GET /user/me` | ✅ Fonctionnel |
-| Route `GET /user/leaderboard` | 🔄 En cours |
+| Route `GET /user/leaderboard` | ⏳ Prévu |
 | Système de cosmétiques | ✅ Fonctionnel |
 | Sauvegarde de parties | ⏳ Prévu |
 | Tests unitaires | ⏳ Non commencé |
