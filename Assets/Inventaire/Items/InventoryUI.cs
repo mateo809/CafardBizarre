@@ -6,75 +6,73 @@ using PurrNet;
 
 public class InventorySetSlot : NetworkBehaviour
 {
-    public GameObject slotPrefab;
+    [Header("UI")]
+    [SerializeField] private GameObject slotPrefab;
 
     [Header("Sprite par défaut quand le slot est vide")]
-    public Sprite emptySprite;
+    [SerializeField] private Sprite emptySprite;
+
+    [Header("Recherche du parent UI")]
+    [SerializeField] private string parentTag = "InventoryParent";
+    [SerializeField] private string parentName = "ParentInventory";
+    [SerializeField] private float retryDelay = 0.1f;
+    [SerializeField] private int maxRetries = 50;
 
     private Transform _slotParent;
-    private bool _initialized = false;
+    private bool _initialized;
+
     protected override void OnSpawned()
     {
         base.OnSpawned();
-
-        if (isOwner)
-            StartCoroutine(FindParentWithRetry());
+        StartCoroutine(FindParentWithRetry());
     }
 
     private IEnumerator FindParentWithRetry()
     {
-        int maxRetries = 50;
         int retryCount = 0;
 
         while (retryCount < maxRetries)
         {
-            GameObject parentGO = GameObject.FindWithTag("InventoryParent")
-                               ?? GameObject.Find("ParentInventory");
+            GameObject parentGO = GameObject.FindWithTag(parentTag) ?? GameObject.Find(parentName);
 
             if (parentGO != null && parentGO.activeInHierarchy)
             {
                 _slotParent = parentGO.transform;
                 _initialized = true;
 
-                if (slotPrefab != null)
-                {
-                    Image img = slotPrefab.GetComponent<Image>();
-                    if (img != null) img.sprite = emptySprite;
-                }
-
-                Debug.Log($"[InventorySetSlot] Parent trouvé après {retryCount + 1} tentative(s) pour {gameObject.name}");
+                Debug.Log($"[InventorySetSlot] Parent trouvé pour {gameObject.name}");
                 yield break;
             }
 
             retryCount++;
-            yield return new WaitForSeconds(0.1f);
+            yield return new WaitForSeconds(retryDelay);
         }
 
-        Debug.LogError($"[InventorySetSlot] Parent introuvable après 5 secondes pour {gameObject.name} ! " +
-                       "Vérifie que 'ParentInventory' a le tag 'InventoryParent' ou existe dans la scène.");
+        Debug.LogError($"[InventorySetSlot] Parent introuvable pour {gameObject.name} !");
     }
 
     public void RefreshUI(List<InventorySlot> slots)
     {
-        if (!isOwner)
-        {
-            Debug.LogWarning($"[InventorySetSlot] RefreshUI appelé par un non-owner sur {gameObject.name}. Ignoré.");
-            return;
-        }
-
         if (!_initialized || _slotParent == null)
         {
             Debug.LogWarning("[InventorySetSlot] Parent non initialisé, RefreshUI ignoré.");
             return;
         }
 
-        foreach (Transform child in _slotParent)
-            Destroy(child.gameObject);
+        if (slotPrefab == null)
+        {
+            Debug.LogError("[InventorySetSlot] slotPrefab est null.");
+            return;
+        }
+
+        for (int i = _slotParent.childCount - 1; i >= 0; i--)
+            Destroy(_slotParent.GetChild(i).gameObject);
 
         foreach (var slot in slots)
         {
             GameObject slotGO = Instantiate(slotPrefab, _slotParent);
             Image icon = slotGO.GetComponentInChildren<Image>();
+
             if (icon != null)
                 icon.sprite = (slot.item != null && slot.item.visual != null) ? slot.item.visual : emptySprite;
         }
