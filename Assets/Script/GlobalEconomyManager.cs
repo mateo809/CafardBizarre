@@ -47,7 +47,7 @@ public class GlobalEconomyManager : NetworkBehaviour
     private void CountPlayers()
     {
         int playerCount = 0;
-        foreach (var identity in FindObjectsByType<NetworkIdentity>(FindObjectsSortMode.None))
+        foreach (var identity in FindObjectsByType<RoachController1>(FindObjectsSortMode.None))
         {
             if (identity.GetComponent<PlayerHealth>() != null)
             {
