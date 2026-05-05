@@ -14,6 +14,7 @@ public class PlayerSkinAttachment : NetworkBehaviour
 
     [Header("Database")]
     [SerializeField] private SkinDatabase _skinDatabase;
+    private BackendCaller _backendCaller;
 
     // Skin actuellement instancié
     private GameObject _currentSkinInstance;
@@ -46,6 +47,11 @@ public class PlayerSkinAttachment : NetworkBehaviour
         // Si on est owner, on synchronise aux autres joueurs
         if (isOwner)
             RPC_ApplySkinOnServer(skinId);
+
+        _backendCaller.GetComponent<BackendCaller>();
+        Debug.LogWarning("TEST BACKEND !!!!!!!");
+        if (_backendCaller != null)
+            StartCoroutine(_backendCaller.EquipCosmetic(int.Parse(skin.unlockId), skin.skinName));
     }
 
     private void ApplySkinLocal(SkinData skin)
