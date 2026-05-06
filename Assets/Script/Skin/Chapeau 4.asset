@@ -16,7 +16,7 @@ MonoBehaviour:
   skinName: MinerHat
   previewIcon: {fileID: 21300000, guid: 6ecfc7b415abcf04792ef9ab4bbe49d6, type: 3}
   skinPrefab: {fileID: 3599940096977244457, guid: ddd4dce63517a3e4aa9dd00f6d6e5b07, type: 3}
-  isUnlockedByDefault: 1
+  isUnlockedByDefault: 0
   unlockId: 5
   positionOffset: {x: 0, y: 0, z: 0}
   rotationOffset: {x: 0, y: 0, z: 0}

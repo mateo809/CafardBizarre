@@ -16,7 +16,7 @@ MonoBehaviour:
   skinName: VikingHelmet
   previewIcon: {fileID: 21300000, guid: 05eaa105f90370a45a477ac5482d4e6f, type: 3}
   skinPrefab: {fileID: 1673775634330422105, guid: f847c28ec2c92414ebcb2f4ee298fbf4, type: 3}
-  isUnlockedByDefault: 1
+  isUnlockedByDefault: 0
   unlockId: 3
   positionOffset: {x: 0, y: 0, z: 0}
   rotationOffset: {x: 0, y: 0, z: 0}

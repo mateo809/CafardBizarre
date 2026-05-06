@@ -1,15 +1,10 @@
+// SkinUnlockManager.cs
+using System.Collections;
 using System.Collections.Generic;
-using Unity.Services.Relay.Models;
 using UnityEngine;
 
-/// <summary>
-/// Gère le déverrouillage des skins via des IDs.
-/// Les IDs déverrouillés sont persistés en PlayerPrefs.
-/// </summary>
 public class SkinUnlockManager : MonoBehaviour
 {
-    private const string PREFS_KEY = "UnlockedSkinIds";
-
     private static SkinUnlockManager _instance;
     public static SkinUnlockManager Instance
     {
@@ -26,6 +21,7 @@ public class SkinUnlockManager : MonoBehaviour
     }
 
     private HashSet<string> _unlockedIds = new();
+    private BackendCaller _backendCaller;
 
     private void Awake()
     {
@@ -36,48 +32,61 @@ public class SkinUnlockManager : MonoBehaviour
         }
         _instance = this;
         DontDestroyOnLoad(gameObject);
-        LoadUnlocked();
+        _backendCaller = GetComponent<BackendCaller>();
     }
 
-    private void LoadUnlocked()
+    /// <summary>Charge les skins débloqués depuis le backend.</summary>
+    public void LoadUnlockedFromBackend(BackendCaller caller, System.Action onDone = null)
     {
-        _unlockedIds.Clear();
-        string raw = PlayerPrefs.GetString(PREFS_KEY, "");
-        if (string.IsNullOrEmpty(raw)) return;
-        foreach (var id in raw.Split(','))
-            if (!string.IsNullOrEmpty(id))
-                _unlockedIds.Add(id);
+        Debug.Log("[SkinUnlock] LoadUnlockedFromBackend appelé");
+        if (caller == null)
+        {
+            Debug.LogError("[SkinUnlock] caller est NULL !");
+            return;
+        }
+
+        StartCoroutine(caller.GetUnlockedCosmetics(cosmetics =>
+        {
+            Debug.Log($"[SkinUnlock] Reçu {cosmetics?.Count} cosmetics du backend");
+            _unlockedIds.Clear();
+            foreach (var c in cosmetics)
+            {
+                Debug.Log($"[SkinUnlock] Ajout id: {c.id}");
+                _unlockedIds.Add(c.id.ToString());
+            }
+            Debug.Log($"[SkinUnlock] _unlockedIds final: {string.Join(",", _unlockedIds)}");
+            onDone?.Invoke();
+        }));
     }
 
-    private void SaveUnlocked()
-    {
-        PlayerPrefs.SetString(PREFS_KEY, string.Join(",", _unlockedIds));
-        PlayerPrefs.Save();
-    }
-
-    /// <summary>Déverrouille un skin par son unlockId.</summary>
+    /// <summary>Déverrouille un skin et l'envoie au backend.</summary>
     public void UnlockSkin(string unlockId)
     {
         if (string.IsNullOrEmpty(unlockId)) return;
+        if (_unlockedIds.Contains(unlockId)) return;
+
         _unlockedIds.Add(unlockId);
-        SaveUnlocked();
-        Debug.Log($"[SkinUnlock] Skin déverrouillé : {unlockId}");
+        Debug.Log($"[SkinUnlock] Skin déverrouillé localement : {unlockId}");
+
+        if (_backendCaller != null && int.TryParse(unlockId, out int id))
+            StartCoroutine(_backendCaller.UnlockCosmetic(id));
+        else
+            Debug.LogWarning("[SkinUnlock] Impossible d'envoyer au backend : BackendCaller manquant ou unlockId non numérique.");
     }
 
     /// <summary>Vérifie si un skin est déverrouillé.</summary>
     public bool IsSkinUnlocked(SkinData skin)
     {
         if (skin == null) return false;
-        if (skin.isUnlockedByDefault) return true;
         return _unlockedIds.Contains(skin.unlockId);
     }
+
 
     /// <summary>Réinitialise tous les déverrouillages (debug).</summary>
     [ContextMenu("Reset All Unlocks")]
     public void ResetAllUnlocks()
     {
         _unlockedIds.Clear();
-        PlayerPrefs.DeleteKey(PREFS_KEY);
         Debug.Log("[SkinUnlock] Tous les déverrouillages réinitialisés.");
     }
 }

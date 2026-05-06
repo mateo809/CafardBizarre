@@ -16,7 +16,7 @@ MonoBehaviour:
   skinName: Pillboxhat
   previewIcon: {fileID: 21300000, guid: 60ba268317f47b6439f43571e3817439, type: 3}
   skinPrefab: {fileID: 387239126791746090, guid: 47f273bc10590084da75f46dadb14ce1, type: 3}
-  isUnlockedByDefault: 1
+  isUnlockedByDefault: 0
   unlockId: 7
   positionOffset: {x: 0, y: 0, z: 0}
   rotationOffset: {x: 0, y: 0, z: 0}

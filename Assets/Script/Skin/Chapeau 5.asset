@@ -16,7 +16,7 @@ MonoBehaviour:
   skinName: PejamaHat
   previewIcon: {fileID: 21300000, guid: 9d477f0d2c958744497ef6b70856eff5, type: 3}
   skinPrefab: {fileID: 6059313568875497669, guid: 8cf3aa79915c4a74ca1e054ede35f0e5, type: 3}
-  isUnlockedByDefault: 1
+  isUnlockedByDefault: 0
   unlockId: 6
   positionOffset: {x: 0, y: 0, z: 0}
   rotationOffset: {x: 0, y: 0, z: 0}

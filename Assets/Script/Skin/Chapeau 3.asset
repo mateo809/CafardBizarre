@@ -16,7 +16,7 @@ MonoBehaviour:
   skinName: MagicianHat
   previewIcon: {fileID: 21300000, guid: 740218bbc89fbe04b8f7b982bc67be7b, type: 3}
   skinPrefab: {fileID: 2583460276034204842, guid: 826aba569833a5f4b9df9d8b5c0e4195, type: 3}
-  isUnlockedByDefault: 1
+  isUnlockedByDefault: 0
   unlockId: 4
   positionOffset: {x: 0, y: 0, z: 0}
   rotationOffset: {x: 0, y: 0, z: 0}

@@ -16,7 +16,7 @@ MonoBehaviour:
   skinName: CowboyHat
   previewIcon: {fileID: 21300000, guid: e213c3d6ead9a9042b38eb98dbc53986, type: 3}
   skinPrefab: {fileID: 277098031491314001, guid: 02ce0faf3b9b8bb4c95919525a372ebc, type: 3}
-  isUnlockedByDefault: 1
+  isUnlockedByDefault: 0
   unlockId: 2
   positionOffset: {x: 0, y: 0, z: 0}
   rotationOffset: {x: 0, y: 0, z: 0}

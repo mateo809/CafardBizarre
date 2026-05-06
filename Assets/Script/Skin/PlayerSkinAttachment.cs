@@ -50,6 +50,7 @@ public class PlayerSkinAttachment : NetworkBehaviour
         if (isOwner)
             RPC_ApplySkinOnServer(skinId);
 
+
         if (_backendCaller != null && int.TryParse(skin.unlockId, out int unlockId))
             StartCoroutine(_backendCaller.EquipCosmetic(unlockId, skin.skinName));
     }
@@ -62,7 +63,14 @@ public class PlayerSkinAttachment : NetworkBehaviour
         if (skin.skinPrefab == null)
             return;
 
-        _currentSkinInstance = Instantiate(skin.skinPrefab, _skinAnchor);
+        if (_skinAnchor == null || _skinAnchor.gameObject.scene.rootCount == 0)
+        {
+            Debug.LogError("[PlayerSkin] _skinAnchor n'est pas une instance de scène !");
+            return;
+        }
+
+        _currentSkinInstance = Instantiate(skin.skinPrefab);
+        _currentSkinInstance.transform.SetParent(_skinAnchor, false);
         _currentSkinInstance.transform.localPosition = skin.positionOffset;
         _currentSkinInstance.transform.localEulerAngles = skin.rotationOffset;
         _currentSkinInstance.transform.localScale = skin.scaleOverride;

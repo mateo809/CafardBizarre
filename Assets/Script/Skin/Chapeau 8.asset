@@ -16,7 +16,7 @@ MonoBehaviour:
   skinName: ShowerCap
   previewIcon: {fileID: 21300000, guid: 0a090da9f36f7f84cb53608dab7e2592, type: 3}
   skinPrefab: {fileID: 57360650241257446, guid: bb1c0aacbf3ae924f830ca515072c3ad, type: 3}
-  isUnlockedByDefault: 1
+  isUnlockedByDefault: 0
   unlockId: 9
   positionOffset: {x: 0, y: 0, z: 0}
   rotationOffset: {x: 0, y: 0, z: 0}

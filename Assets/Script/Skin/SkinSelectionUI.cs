@@ -1,7 +1,9 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System;
 
 public class SkinSelectionUI : MonoBehaviour
 {
@@ -18,6 +20,9 @@ public class SkinSelectionUI : MonoBehaviour
     [Header("PlayerRef")]
     [SerializeField] private PlayerSkinAttachment _localPlayerSkin;
 
+    [Header("Backend")]
+    [SerializeField] private BackendCaller _backendCaller;
+
     public static string CurrentSelectedSkinId { get; private set; }
 
     private const string SELECTED_SKIN_PREF = "SelectedSkinId";
@@ -25,15 +30,25 @@ public class SkinSelectionUI : MonoBehaviour
 
     private void Awake()
     {
+        
+
+        if (_backendCaller == null)
+            _backendCaller = GetComponent<BackendCaller>();
+
+        Debug.Log(_backendCaller == null);
+
         CurrentSelectedSkinId = PlayerPrefs.GetString(SELECTED_SKIN_PREF, "");
 
         if (_applyButton != null)
             _applyButton.onClick.AddListener(OnApplyClicked);
     }
-
     private void OnEnable()
     {
-        BuildSlots();
+        // Charger les skins débloqués AVANT de construire les slots
+        SkinUnlockManager.Instance.LoadUnlockedFromBackend(_backendCaller, () =>
+        {
+            BuildSlots();
+        });
     }
 
     private void OnDisable()
@@ -119,7 +134,7 @@ public class SkinSelectionUI : MonoBehaviour
         if (_localPlayerSkin != null)
             _localPlayerSkin.ApplySkin(CurrentSelectedSkinId);
         else
-            Debug.LogWarning("[SkinSelectionUI] _localPlayerSkin non assigné — skin sauvegardé mais pas appliqué en live.");
+            Debug.LogWarning("[SkinSelectionUI] _localPlayerSkin non assigné.");
 
         Debug.Log($"[SkinSelectionUI] Skin appliqué : {CurrentSelectedSkinId}");
     }
@@ -143,13 +158,7 @@ public class SkinSelectionUI : MonoBehaviour
             return;
         }
 
-        if (_skinDatabase == null)
-        {
-            _selectedNameLabel.text = CurrentSelectedSkinId;
-            return;
-        }
-
-        var skin = _skinDatabase.GetSkinById(CurrentSelectedSkinId);
+        var skin = _skinDatabase?.GetSkinById(CurrentSelectedSkinId);
         _selectedNameLabel.text = skin != null ? skin.skinName : CurrentSelectedSkinId;
     }
 

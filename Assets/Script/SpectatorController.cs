@@ -147,6 +147,9 @@ public class SpectatorController : NetworkBehaviour
         UpdateCamera();
     }
 
+    [Header("Backend")]
+    [SerializeField] private BackendCaller _backendCaller;
+
     [ObserversRpc]
     private void TriggerGameOverRPC(bool isWin)
     {
@@ -155,10 +158,26 @@ public class SpectatorController : NetworkBehaviour
         if (isWin)
         {
             Debug.Log("[Spectator] Win!");
+
+            if (_backendCaller != null && GlobalEconomyManager._instance != null)
+            {
+                int remainingTime = Mathf.RoundToInt(GlobalEconomyManager._instance.GetRemainingTime());
+                int totalMoney = GlobalEconomyManager._instance.GetTotalMoney();
+
+                StartCoroutine(_backendCaller.UnlockRandomCosmetic(cosmetic =>
+                {
+                    if (cosmetic != null)
+                        Debug.Log($"Nouveau chapeau débloqué : {cosmetic.name} !");
+                    else
+                        Debug.Log("Tous les cosmetics sont déjà débloqués !");
+                }));
+
+                StartCoroutine(_backendCaller.UpdateHighscore(remainingTime, totalMoney));
+            }
         }
         else
         {
-            Debug.Log("[Spectator] Loose! Pas de joueurs vivants.");
+            Debug.Log("[Spectator] Loose!");
             SceneManager.LoadSceneAsync(_looseScene);
         }
     }
