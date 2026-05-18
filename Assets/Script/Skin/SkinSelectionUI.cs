@@ -13,7 +13,6 @@ public class SkinSelectionUI : MonoBehaviour
     [Header("UI References")]
     [SerializeField] private Transform _gridParent;
     [SerializeField] private GameObject _skinSlotPrefab;
-    [SerializeField] private Button _applyButton;
     [SerializeField] private TextMeshProUGUI _selectedNameLabel;
     [SerializeField] private GameObject _lockedMessage;
 
@@ -30,40 +29,24 @@ public class SkinSelectionUI : MonoBehaviour
 
     private void Awake()
     {
-        
-
         if (_backendCaller == null)
             _backendCaller = GetComponent<BackendCaller>();
 
-        Debug.Log(_backendCaller == null);
-
         CurrentSelectedSkinId = PlayerPrefs.GetString(SELECTED_SKIN_PREF, "");
-
-        if (_applyButton != null)
-            _applyButton.onClick.AddListener(OnApplyClicked);
     }
+
     private void OnEnable()
     {
-        // Charger les skins débloqués AVANT de construire les slots
         SkinUnlockManager.Instance.LoadUnlockedFromBackend(_backendCaller, () =>
         {
             BuildSlots();
         });
     }
 
-    private void OnDisable()
-    {
-        if (_applyButton != null)
-            _applyButton.onClick.RemoveListener(OnApplyClicked);
-    }
-
     private void BuildSlots()
     {
         foreach (var slot in _slots)
-        {
-            if (slot != null)
-                Destroy(slot.gameObject);
-        }
+            if (slot != null) Destroy(slot.gameObject);
 
         _slots.Clear();
 
@@ -96,6 +79,10 @@ public class SkinSelectionUI : MonoBehaviour
         UpdateSelectedLabel();
     }
 
+    /// <summary>
+    /// Appelé quand on clique sur un slot débloqué.
+    /// Sélectionne, équipe immédiatement et envoie au backend.
+    /// </summary>
     public void SelectSkin(string skinId)
     {
         if (_skinDatabase != null && _skinDatabase.GetSkinById(skinId) == null)
@@ -105,13 +92,30 @@ public class SkinSelectionUI : MonoBehaviour
         }
 
         CurrentSelectedSkinId = skinId;
-        RefreshAllSlots();
-        UpdateSelectedLabel();
+
+        // Sauvegarde locale
+        PlayerPrefs.SetString(SELECTED_SKIN_PREF, skinId);
+        PlayerPrefs.Save();
+
+        // Applique visuellement sur le joueur
+        if (_localPlayerSkin != null)
+            _localPlayerSkin.ApplySkin(skinId);
+        else
+            Debug.LogWarning("[SkinSelectionUI] _localPlayerSkin non assigné.");
+
+        // Envoie au backend si possible
+        if (_backendCaller != null && int.TryParse(skinId, out int skinIdInt))
+        {
+            StartCoroutine(_backendCaller.EquipCosmetic(skinIdInt, skinId));
+        }
 
         if (_lockedMessage != null)
             _lockedMessage.SetActive(false);
 
-        Debug.Log($"[SkinSelectionUI] Sélectionné : {skinId}");
+        RefreshAllSlots();
+        UpdateSelectedLabel();
+
+        Debug.Log($"[SkinSelectionUI] Skin équipé : {skinId}");
     }
 
     public void OnLockedSkinClicked(SkinData skin)
@@ -123,29 +127,10 @@ public class SkinSelectionUI : MonoBehaviour
             _selectedNameLabel.text = $"{skin.skinName} — Verrouillé";
     }
 
-    private void OnApplyClicked()
-    {
-        if (string.IsNullOrEmpty(CurrentSelectedSkinId))
-            return;
-
-        PlayerPrefs.SetString(SELECTED_SKIN_PREF, CurrentSelectedSkinId);
-        PlayerPrefs.Save();
-
-        if (_localPlayerSkin != null)
-            _localPlayerSkin.ApplySkin(CurrentSelectedSkinId);
-        else
-            Debug.LogWarning("[SkinSelectionUI] _localPlayerSkin non assigné.");
-
-        Debug.Log($"[SkinSelectionUI] Skin appliqué : {CurrentSelectedSkinId}");
-    }
-
     private void RefreshAllSlots()
     {
         foreach (var slot in _slots)
-        {
-            if (slot != null)
-                slot.Refresh();
-        }
+            if (slot != null) slot.Refresh();
     }
 
     private void UpdateSelectedLabel()
