@@ -8,7 +8,6 @@ public class GlobalMoneyUI : NetworkBehaviour
     [Header("UI Settings")]
     [SerializeField] private TextMeshProUGUI moneyTextPrefab;
     [SerializeField] private TextMeshProUGUI timerTextPrefab;
-
     private TextMeshProUGUI _moneyTextInstance;
     private TextMeshProUGUI _timerTextInstance;
     private GlobalEconomyManager _economyManager;
@@ -22,18 +21,19 @@ public class GlobalMoneyUI : NetworkBehaviour
     [SerializeField] private int _moneyTarget = 300;
     private bool _gameEnded = false;
 
+    [Header("Backend")]
+    [SerializeField] private BackendCaller backendCaller;
+
     protected override void OnSpawned()
     {
         base.OnSpawned();
-
-            StartCoroutine(UIManager.Instance.WaitUntilReady(SetupUI));
+        StartCoroutine(UIManager.Instance.WaitUntilReady(SetupUI));
     }
 
     private void SetupUI()
     {
         if (moneyTextPrefab != null)
             _moneyTextInstance = UIManager.Instance.InstantiateInCanvas<TextMeshProUGUI>(moneyTextPrefab.gameObject);
-
         if (timerTextPrefab != null)
             _timerTextInstance = UIManager.Instance.InstantiateInCanvas<TextMeshProUGUI>(timerTextPrefab.gameObject);
 
@@ -43,7 +43,6 @@ public class GlobalMoneyUI : NetworkBehaviour
             Debug.LogError("[GlobalMoneyUI] GlobalEconomyManager introuvable !");
             return;
         }
-
         _uiInitialized = true;
     }
 
@@ -79,6 +78,19 @@ public class GlobalMoneyUI : NetworkBehaviour
     private void EndGameRPC(bool isWin)
     {
         _gameEnded = true;
-        SceneManager.LoadSceneAsync(isWin ? _winScene : _looseScene);
+
+        if (isWin && backendCaller != null)
+        {
+            StartCoroutine(backendCaller.UnlockRandomCosmetic(
+                onSuccess: (cosmetic) =>
+                {
+                    SceneManager.LoadSceneAsync(_winScene);
+                }
+            ));
+        }
+        else
+        {
+            SceneManager.LoadSceneAsync(isWin ? _winScene : _looseScene);
+        }
     }
 }
