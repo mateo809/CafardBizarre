@@ -3688,7 +3688,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BackendAuthManager
   authData: {fileID: 11400000, guid: f249e62255972734d9945b2972b127ef, type: 2}
-  baseUrl: http://localhost:3000
+  baseUrl: http://localhost:5432
 --- !u!4 &1204877965
 Transform:
   m_ObjectHideFlags: 0
